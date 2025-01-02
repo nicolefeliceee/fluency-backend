@@ -14,4 +14,5 @@ public class Age {
     @Column(length = 55)
     private String label;
 //    tes nfc
+//    tes lagi
 }
