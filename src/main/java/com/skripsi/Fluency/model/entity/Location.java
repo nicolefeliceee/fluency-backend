@@ -16,7 +16,12 @@ public class Location {
     @Column(length = 55)
     private String label;
 
-    @OneToMany
+    @OneToMany(mappedBy = "location")
     private List<User> users;
+
+    //    many to many
+    @ManyToMany(mappedBy = "locations")
+    private List<Brand> brands;
+
 
 }

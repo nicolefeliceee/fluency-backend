@@ -3,6 +3,8 @@ package com.skripsi.Fluency.model.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.List;
+
 @Entity
 @Table
 @Data
@@ -13,6 +15,10 @@ public class Age {
 
     @Column(length = 55)
     private String label;
-//    tes nfc
-//    tes lagi
+
+//    many to many
+    @ManyToMany(mappedBy = "ages")
+    private List<Brand> brands;
+
+
 }

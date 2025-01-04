@@ -8,22 +8,29 @@ import java.time.LocalDateTime;
 @Entity
 @Table
 @Data
-public class TopComment {
+public class Message {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "project_detail_id")
-    private ProjectDetail projectDetail;
+    @JoinColumn(name = "sender_id")
+    private User user;
 
-    @Column(length = 55)
-    private String username;
+    @ManyToOne
+    @JoinColumn(name = "chat_id")
+    private Chat chat;
 
     @Column(length = 255)
-    private String comment;
+    private String text;
 
     @Column
-    private Integer likes;
     private LocalDateTime dateTime;
+
+    @Column(length = 55)
+    private String messageType;
+
+    @Column(length = 255)
+    private String url;
+
 }
