@@ -5,7 +5,9 @@ import com.skripsi.Fluency.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CategoryService {
@@ -14,11 +16,15 @@ public class CategoryService {
     @Autowired
     public CategoryRepository categoryRepository;
 
-    public List<Category> getAllCategory() {
+    public Map<String, String> getAllCategory() {
         List<Category> list = categoryRepository.findAll();
 
-        System.out.print(list);
+        Map<String, String> labels = new HashMap<>();
 
-        return list;
+        for(Category item: list) {
+            labels.put(item.getId().toString(), item.getLabel());
+        }
+
+        return labels;
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("category")
@@ -21,7 +22,7 @@ public class CategoryController {
     @GetMapping
     public ResponseEntity<?> getAllCategory() {
         try {
-            List<Category> list = categoryService.getAllCategory();
+            Map<String, String> list = categoryService.getAllCategory();
             return ResponseEntity.ok(list);
         } catch(Exception e) {
             System.out.println(e.getMessage());
