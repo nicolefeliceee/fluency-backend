@@ -5,8 +5,8 @@ import lombok.Data;
 
 @Builder
 @Data
-public class BrandDto {
+public class LoginResponseDto {
+    // response ke frontend untuk brand dan influencer login
     private Integer id;
-    private String email;
     private String name;
 }
