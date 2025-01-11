@@ -17,6 +17,8 @@ public class Category {
     @Column(length = 55)
     private String label;
 
+    private String logo;
+
 //    tambahan
     @OneToMany(mappedBy = "category")
     private List<Brand> brands;

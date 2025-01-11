@@ -1,6 +1,7 @@
 package com.skripsi.Fluency.model.entity;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Data;
 
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.List;
 @Entity
 @Table
 @Data
+@Builder
 public class Brand {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

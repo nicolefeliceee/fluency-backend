@@ -1,34 +1,32 @@
 package com.skripsi.Fluency.controller;
 
-import com.skripsi.Fluency.model.entity.Category;
-import com.skripsi.Fluency.service.CategoryService;
+import com.skripsi.Fluency.service.AgeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("category")
-public class CategoryController {
+@RequestMapping("age")
+public class AgeController {
 
     @Autowired
-    public CategoryService categoryService;
+    public AgeService ageService;
 
     @GetMapping
-    public ResponseEntity<?> getAllCategory() {
+    public ResponseEntity<?> getAllAge() {
+
         try {
-            List<Map<String, String>> list = categoryService.getAllCategory();
-            return ResponseEntity.ok(list);
-        } catch(Exception e) {
-            System.out.println(e.getMessage());
+            List<Map<String, String>> response = ageService.getAllAge();
+
+            return ResponseEntity.ok(response);
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
             return ResponseEntity.internalServerError().build();
         }
-
     }
-
 }

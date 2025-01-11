@@ -1,7 +1,8 @@
 package com.skripsi.Fluency.service;
 
-import com.skripsi.Fluency.model.entity.Category;
-import com.skripsi.Fluency.repository.CategoryRepository;
+import com.skripsi.Fluency.model.entity.Age;
+import com.skripsi.Fluency.model.entity.Gender;
+import com.skripsi.Fluency.repository.GenderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,25 +12,24 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class CategoryService {
-
+public class GenderService {
 
     @Autowired
-    public CategoryRepository categoryRepository;
+    public GenderRepository genderRepository;
 
-    public List<Map<String, String>> getAllCategory() {
-        List<Category> list = categoryRepository.findAll();
+    public List<Map<String, String>> getAllGender() {
+        List<Gender> list = genderRepository.findAll();
+        List<Map<String, String>> response = new ArrayList<>();
 
-        List<Map<String, String>> listMap = new ArrayList<>();
-
-        for(Category item: list) {
+        for(Gender item : list) {
             Map<String, String> newMap = new HashMap<>();
             newMap.put("id", item.getId().toString());
             newMap.put("label", item.getLabel());
             newMap.put("logo", item.getLogo());
-            listMap.add(newMap);
+
+            response.add(newMap);
         }
 
-        return listMap;
+        return response;
     }
 }

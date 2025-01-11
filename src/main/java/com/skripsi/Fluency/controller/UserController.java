@@ -1,8 +1,6 @@
 package com.skripsi.Fluency.controller;
 
-import com.skripsi.Fluency.model.dto.LoginResponseDto;
-import com.skripsi.Fluency.model.dto.LoginBrandRequestDto;
-import com.skripsi.Fluency.model.dto.LoginInfluencerRequestDto;
+import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -46,5 +44,18 @@ public class UserController {
     }
 
 
+    @PostMapping("brand/signup")
+    public ResponseEntity<?> signupBrand(@RequestBody SignupBrandRequestDto requestDto) {
+        System.out.println(requestDto);
+
+        ResponseEntity<?> response = userService.signUpBrand(requestDto);
+
+        return response;
+    }
+
+    @GetMapping("validation/email/{email}")
+    public ResponseEntity<?> validateEmail(@PathVariable String email) {
+        return userService.findEmail(email);
+    }
 
 }

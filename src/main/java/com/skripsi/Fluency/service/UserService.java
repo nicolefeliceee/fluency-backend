@@ -5,23 +5,40 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skripsi.Fluency.model.dto.LoginInfluencerRequestDto;
 import com.skripsi.Fluency.model.dto.LoginResponseDto;
 import com.skripsi.Fluency.model.dto.LoginBrandRequestDto;
-import com.skripsi.Fluency.model.entity.Brand;
-import com.skripsi.Fluency.model.entity.Influencer;
-import com.skripsi.Fluency.model.entity.User;
-import com.skripsi.Fluency.repository.InfluencerRepository;
-import com.skripsi.Fluency.repository.UserRepository;
+import com.skripsi.Fluency.model.dto.SignupBrandRequestDto;
+import com.skripsi.Fluency.model.entity.*;
+import com.skripsi.Fluency.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class UserService {
     @Autowired
     public UserRepository userRepository;
+
+    @Autowired
+    public BrandRepository brandRepository;
+
+    @Autowired
+    public LocationRepository locationRepository;
+
+    @Autowired
+    public GenderRepository genderRepository;
+
+    @Autowired
+    public AgeRepository ageRepository;
+
+    @Autowired
+    public CategoryRepository categoryRepository;
 
     public LoginResponseDto login(LoginBrandRequestDto loginBrandRequestDto) {
         User user = userRepository.findByEmail(loginBrandRequestDto.getEmail());
@@ -96,5 +113,79 @@ public class UserService {
             System.out.println(e.getMessage());
             return null;
         }
+    }
+
+    @Transactional
+    public ResponseEntity<?> signUpBrand(SignupBrandRequestDto requestDto) {
+
+        try {
+
+//            check email exist
+            User check = userRepository.findByEmail(requestDto.getEmail());
+
+            if(check != null) {
+                return ResponseEntity.ok("Email already exists");
+            }
+
+
+//        create user dulu
+            Location location = locationRepository.findById(requestDto.getLocation()).orElse(null);
+
+            User newUser = User.builder()
+                    .name(requestDto.getName())
+                    .email(requestDto.getEmail())
+                    .phone(requestDto.getPhone())
+                    .location(location)
+                    .userType("brand")
+                    .build();
+
+            User savedUser = userRepository.save(newUser);
+
+//        habis itu create brand
+            List<Age> targetAges = new ArrayList<>();
+            List<Gender> targetGender = new ArrayList<>();
+            List<Location> targetLocation = new ArrayList<>();
+            Category category = categoryRepository.findById(Integer.valueOf(requestDto.getCategory()[0])).orElse(null);
+
+            for(String item: requestDto.getTargetAgeRange()) {
+                Age found = ageRepository.findById(Integer.valueOf(item)).orElse(null);
+                targetAges.add(found);
+            }
+
+            for(String item: requestDto.getTargetGender()) {
+                Gender found = genderRepository.findById(Integer.valueOf(item)).orElse(null);
+                targetGender.add(found);
+            }
+
+            for(String item: requestDto.getTargetLocation()) {
+                Location found = locationRepository.findById(Integer.valueOf(item)).orElse(null);
+                targetLocation.add(found);
+            }
+
+            Brand newBrand = Brand.builder()
+                    .password(requestDto.getPassword())
+                    .profilePicture("")
+                    .user(savedUser)
+                    .category(category)
+                    .ages(targetAges)
+                    .genders(targetGender)
+                    .locations(targetLocation)
+                    .build();
+
+            Brand savedBrand = brandRepository.save(newBrand);
+
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
+        }
+
+        return ResponseEntity.ok(requestDto);
+
+    }
+
+
+    public ResponseEntity<?> findEmail(String email) {
+        User check = userRepository.findByEmail(email);
+
+        return ResponseEntity.ok(check.getEmail());
     }
 }

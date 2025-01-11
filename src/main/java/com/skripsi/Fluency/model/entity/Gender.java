@@ -16,6 +16,8 @@ public class Gender {
     @Column(length = 55)
     private String label;
 
+    private String logo;
+
     //    tambahan
     @OneToMany(mappedBy = "gender")
     private List<Influencer> influencers;

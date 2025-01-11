@@ -1,4 +1,7 @@
 package com.skripsi.Fluency.repository;
 
-public interface BrandRepository {
+import com.skripsi.Fluency.model.entity.Brand;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BrandRepository extends JpaRepository<Brand, Integer> {
 }
