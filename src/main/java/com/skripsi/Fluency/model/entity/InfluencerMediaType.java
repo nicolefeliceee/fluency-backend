@@ -24,6 +24,6 @@ public class InfluencerMediaType {
     private MediaType mediaType;
 
     @Column
-    private Double price;
+    private Integer price;
 
 }

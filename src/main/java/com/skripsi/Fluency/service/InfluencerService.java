@@ -4,9 +4,7 @@ import com.skripsi.Fluency.model.dto.InfluencerFilterRequestDto;
 import com.skripsi.Fluency.model.dto.InfluencerFilterResponseDto;
 import com.skripsi.Fluency.model.dto.LoginBrandRequestDto;
 import com.skripsi.Fluency.model.dto.LoginResponseDto;
-import com.skripsi.Fluency.model.entity.Brand;
-import com.skripsi.Fluency.model.entity.Influencer;
-import com.skripsi.Fluency.model.entity.User;
+import com.skripsi.Fluency.model.entity.*;
 import com.skripsi.Fluency.repository.InfluencerRepository;
 import com.skripsi.Fluency.repository.UserRepository;
 import jakarta.persistence.criteria.*;
@@ -19,12 +17,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 @Service
 public class InfluencerService {
 
+//    ini parse range untuk age
     private Range<Integer> parseRange(String value) {
         value = value.toLowerCase(); // Ubah ke lowercase untuk konsistensi
         if (value.contains("-")) { // Format seperti "1k - 10k" atau "1M - 10M"
@@ -34,10 +35,28 @@ public class InfluencerService {
             return Range.closed(lower, upper);
         } else if (value.startsWith(">")) { // Format seperti ">1k" atau ">1M"
             int lowerBound = Integer.parseInt(value.replace(">", "").replace("k", "000").replace("m", "000000").trim());
-            return Range.rightOpen(lowerBound, Integer.MAX_VALUE); // (lowerBound, +∞)
+            return Range.rightOpen(lowerBound, 120); // (lowerBound, +∞)
         } else if (value.startsWith("<")) { // Format seperti "<1k" atau "<1M"
             int upperBound = Integer.parseInt(value.replace("<", "").replace("k", "000").replace("m", "000000").trim());
-            return Range.leftOpen(Integer.MIN_VALUE, upperBound); // (-∞, upperBound)
+            return Range.leftOpen(1, upperBound); // (-∞, upperBound)
+        }
+        throw new IllegalArgumentException("Invalid range format: " + value);
+    }
+
+    //    ini parse range untuk price
+    private Range<Integer> parseRangePrice(String value) {
+        value = value.toLowerCase(); // Ubah ke lowercase untuk konsistensi
+        if (value.contains("-")) { // Format seperti "1k - 10k" atau "1M - 10M"
+            String[] parts = value.replace("k", "000").replace("m", "000000").split("-");
+            int lower = Integer.parseInt(parts[0].trim());
+            int upper = Integer.parseInt(parts[1].trim());
+            return Range.closed(lower, upper);
+        } else if (value.startsWith(">")) { // Format seperti ">1k" atau ">1M"
+            int lowerBound = Integer.parseInt(value.replace(">", "").replace("k", "000").replace("m", "000000").trim());
+            return Range.rightOpen(lowerBound, 999999999); // (lowerBound, +∞)
+        } else if (value.startsWith("<")) { // Format seperti "<1k" atau "<1M"
+            int upperBound = Integer.parseInt(value.replace("<", "").replace("k", "000").replace("m", "000000").trim());
+            return Range.leftOpen(1, upperBound); // (-∞, upperBound)
         }
         throw new IllegalArgumentException("Invalid range format: " + value);
     }
@@ -64,6 +83,15 @@ public class InfluencerService {
         return criteriaBuilder.and(lowerDatePredicate, upperDatePredicate);
     }
 
+    private Predicate createPricePredicate(CriteriaBuilder criteriaBuilder, Join<Influencer, InfluencerMediaType> mediaTypeJoin, Integer lowerPrice, Integer upperPrice) {
+        // Membandingkan harga dalam range
+        Predicate lowerPricePredicate = criteriaBuilder.greaterThanOrEqualTo(mediaTypeJoin.get("price"), lowerPrice);
+        Predicate upperPricePredicate = criteriaBuilder.lessThanOrEqualTo(mediaTypeJoin.get("price"), upperPrice);
+
+        // Gabungkan predikat batas bawah dan atas dengan AND
+        return criteriaBuilder.and(lowerPricePredicate, upperPricePredicate);
+    }
+
 
 //    public Predicate toPredicate(Root<Influencer> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
     public Predicate toPredicate(Root<Influencer> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder, InfluencerFilterRequestDto influencerFilterRequestDto) {
@@ -77,7 +105,7 @@ public class InfluencerService {
 
             // Loop untuk setiap range followers dan buat predikatnya
             for (String range : influencerFilterRequestDto.getAge()) {
-                System.out.println("masuk di for");
+                System.out.println("masuk di for age");
                 System.out.println("age per range: " + influencerFilterRequestDto.getAge());
 
                 Range<Integer> ageRange = parseRange(range);
@@ -87,186 +115,82 @@ public class InfluencerService {
                 Integer lowerAge = ageRange.getLowerBound().getValue().orElseThrow();
                 Integer upperAge = ageRange.getUpperBound().getValue().orElseThrow();
 
-                System.out.println("lowerAge: " + lowerAge);
-                System.out.println("upperAge: " + upperAge);
-
                 // Menggunakan fungsi yang telah diperbarui dengan parameter rentang usia
                 Predicate agePredicate = createAgePredicate(criteriaBuilder, root, lowerAge, upperAge);
 
                 // Menambahkan predikat usia ke dalam daftar predikat
                 agePredicates.add(agePredicate);
-                System.out.println("agepredicates: " + agePredicates);
-
-//                // Menggunakan nilai yang sudah dikeluarkan dari Optional untuk membuat predikat usia
-//                Predicate lowerAgePredicate = createAgePredicate(criteriaBuilder, root, lowerAge);
-//                Predicate upperAgePredicate = createAgePredicate(criteriaBuilder, root, upperAge);
-
-//                // Membuat predikat untuk batas bawah usia
-//                Predicate lowerAgePredicate = criteriaBuilder.greaterThanOrEqualTo(
-//                        criteriaBuilder.function("YEAR", Integer.class, root.get("dob")),
-//                        currentYear - upperAge
-//                );
-//
-//                // Membuat predikat untuk batas atas usia
-//                Predicate upperAgePredicate = criteriaBuilder.lessThanOrEqualTo(
-//                        criteriaBuilder.function("YEAR", Integer.class, root.get("dob")),
-//                        currentYear - lowerAge
-//                );
-
-//                System.out.println("lowerAgePredicate: " + lowerAgePredicate);
-//                System.out.println("upperAgePredicate: " + upperAgePredicate);
-
-//                Predicate lowerBoundPredicate = criteriaBuilder.greaterThanOrEqualTo(
-//                        root.get("dob"),
-//                        ageRange.getLowerBound().getValue().orElseThrow());
-//                Predicate upperBoundPredicate = criteriaBuilder.lessThanOrEqualTo(
-//                        root.get("dob"),
-//                        ageRange.getUpperBound().getValue().orElseThrow());
-//
-//                System.out.println("lowerBoundPredicate: " + lowerBoundPredicate);
-//                System.out.println("upperBoundPredicate: " + upperBoundPredicate);
-
-
-                // Gabungkan rentang usia dengan AND
-//                agePredicates.add(criteriaBuilder.and(lowerAgePredicate, upperAgePredicate));
-//                System.out.println("agePredicates: " + agePredicates);
-//                System.out.println("andPredicates: " + andPredicates);
-//                System.out.println("orPredicates: " + orPredicates);
 
             }
 
             // Gabungkan predikat follower dengan OR (untuk rentang berbeda, gabungkan dengan OR)
             if (!agePredicates.isEmpty()) {
-                System.out.println("kalau kosong");
-                orPredicates.add(criteriaBuilder.or(agePredicates.toArray(new Predicate[0])));
-                System.out.println("agePredicates: " + agePredicates);
-                System.out.println("andPredicates: " + andPredicates);
-                System.out.println("orPredicates: " + orPredicates);
+                Predicate agePredicateGroup = criteriaBuilder.or(agePredicates.toArray(new Predicate[0]));
+                andPredicates.add(agePredicateGroup);
             }
         }
 
-//        // 1. Price Range
-//        if (!influencerFilterRequestDto.getPrice().isEmpty()) {
-//            List<Predicate> pricePredicates = new ArrayList<>();
-//
-//            // Loop untuk setiap range followers dan buat predikatnya
-//            for (String range : influencerFilterRequestDto.getPrice()) {
-//                System.out.println("masuk di for");
-//                System.out.println("age per range: " + influencerFilterRequestDto.getPrice());
-//
-//                Range<Integer> priceRange = parseRange(range);
-//                System.out.println("ageRange: " + priceRange);
-//                System.out.println("root.get(followers): " + root.get("followers"));
-//                Predicate lowerBoundPredicate = criteriaBuilder.greaterThanOrEqualTo(
-//                        root.get("price"),
-//                        priceRange.getLowerBound().getValue().orElseThrow());
-//                Predicate upperBoundPredicate = criteriaBuilder.lessThanOrEqualTo(
-//                        root.get("dob"),
-//                        priceRange.getUpperBound().getValue().orElseThrow());
-//
-//                System.out.println("lowerBoundPredicate: " + lowerBoundPredicate);
-//                System.out.println("upperBoundPredicate: " + upperBoundPredicate);
-//
-//                // Gabungkan range ini dengan AND (followers >= X AND followers <= Y)
-//                pricePredicates.add(criteriaBuilder.and(lowerBoundPredicate, upperBoundPredicate));
-//                System.out.println("followerPredicates: " + pricePredicates);
-//                System.out.println("andPredicates: " + andPredicates);
-//                System.out.println("orPredicates: " + orPredicates);
-//
-//            }
-//
-//            // Gabungkan predikat follower dengan OR (untuk rentang berbeda, gabungkan dengan OR)
-//            if (!pricePredicates.isEmpty()) {
-//                System.out.println("kalau kosong");
-//                orPredicates.add(criteriaBuilder.or(pricePredicates.toArray(new Predicate[0])));
-//                System.out.println("followerPredicates: " + pricePredicates);
-//                System.out.println("andPredicates: " + andPredicates);
-//                System.out.println("orPredicates: " + orPredicates);
-//            }
-//        }
+        // Join dengan InfluencerMediaType
+        Join<Influencer, InfluencerMediaType> mediaTypeJoin = root.join("influencerMediaTypes", JoinType.LEFT);
 
+//      2. Price Range
+        if (!influencerFilterRequestDto.getPrice().isEmpty()) {
+            List<Predicate> pricePredicates = new ArrayList<>();
 
+            for (String range : influencerFilterRequestDto.getPrice()) {
+                System.out.println("masuk di for age");
+                System.out.println("Processing price range: " + range);
+                Range<Integer> priceRange = parseRangePrice(range); // Menggunakan fungsi parseRange yang sudah ada
+                System.out.println("price range: " + priceRange);
+                Integer lowerPrice = priceRange.getLowerBound().getValue().orElseThrow();
+                Integer upperPrice = priceRange.getUpperBound().getValue().orElseThrow();
 
+                // Untuk setiap media type (feeds, reels, story), buat predicate
+                Predicate feedsPredicate = criteriaBuilder.and(
+                        criteriaBuilder.equal(mediaTypeJoin.get("mediaType").get("label"), "Feeds"),
+                        createPricePredicate(criteriaBuilder, mediaTypeJoin, lowerPrice, upperPrice)
+                );
 
-//
-//        // 2. Media Filter
-//        if (!influencerFilterRequestDto.getMedia().isEmpty()) {
-//            Predicate mediaPredicate = root.get("media").in(influencerFilterRequestDto.getMedia());
-//            andPredicates.add(mediaPredicate); // Gabungkan dengan AND
-//        }
-//
-//        // 3. Price Filter
-//        if (!influencerFilterRequestDto.getPrice().isEmpty()) {
-//            for (String range : influencerFilterRequestDto.getPrice()) {
-//                Range<Integer> priceRange = parseRange(range);
-//                Predicate lowerPricePredicate = criteriaBuilder.greaterThanOrEqualTo(root.get("price"), priceRange.getLowerBound().getValue().orElseThrow());
-//                Predicate upperPricePredicate = criteriaBuilder.lessThanOrEqualTo(root.get("price"), priceRange.getUpperBound().getValue().orElseThrow());
-//                andPredicates.add(criteriaBuilder.and(lowerPricePredicate, upperPricePredicate));
-//            }
-//        }
-//
-//        // 4. Rating Filter
-//        if (!influencerFilterRequestDto.getRating().isEmpty()) {
-//            Predicate ratingPredicate = root.get("rating").in(influencerFilterRequestDto.getRating());
-//            andPredicates.add(ratingPredicate); // Gabungkan dengan AND
-//        }
-//
-//        // 5. Age Filter
-//        if (!influencerFilterRequestDto.getAge().isEmpty()) {
-//            for (String range : influencerFilterRequestDto.getAge()) {
-//                Range<Integer> ageRange = parseRange(range);
-//                Predicate lowerAgePredicate = criteriaBuilder.greaterThanOrEqualTo(root.get("age"), ageRange.getLowerBound().getValue().orElseThrow());
-//                Predicate upperAgePredicate = criteriaBuilder.lessThanOrEqualTo(root.get("age"), ageRange.getUpperBound().getValue().orElseThrow());
-//                andPredicates.add(criteriaBuilder.and(lowerAgePredicate, upperAgePredicate));
-//            }
-//        }
-//
-//        // 6. Gender Filter
-//        if (!influencerFilterRequestDto.getGender().isEmpty()) {
-//            Predicate genderPredicate = root.get("gender").in(influencerFilterRequestDto.getGender());
-//            andPredicates.add(genderPredicate); // Gabungkan dengan AND
-//        }
-//
-//        // 7. Gender Audience Filter
-//        if (!influencerFilterRequestDto.getGenderAudience().isEmpty()) {
-//            Predicate genderAudiencePredicate = root.get("genderAudience").in(influencerFilterRequestDto.getGenderAudience());
-//            andPredicates.add(genderAudiencePredicate); // Gabungkan dengan AND
-//        }
-//
-//        // 8. Location Filter
-//        if (!influencerFilterRequestDto.getLocation().isEmpty()) {
-//            Predicate locationPredicate = root.get("location").in(influencerFilterRequestDto.getLocation());
-//            andPredicates.add(locationPredicate); // Gabungkan dengan AND
-//        }
+                Predicate reelsPredicate = criteriaBuilder.and(
+                        criteriaBuilder.equal(mediaTypeJoin.get("mediaType").get("label"), "Reels"),
+                        createPricePredicate(criteriaBuilder, mediaTypeJoin, lowerPrice, upperPrice)
+                );
+
+                Predicate storyPredicate = criteriaBuilder.and(
+                        criteriaBuilder.equal(mediaTypeJoin.get("mediaType").get("label"), "Story"),
+                        createPricePredicate(criteriaBuilder, mediaTypeJoin, lowerPrice, upperPrice)
+                );
+
+                // Gabungkan predikat price untuk setiap media type dengan OR di dalam kurung
+                Predicate mediaTypePredicateGroup = criteriaBuilder.or(feedsPredicate, reelsPredicate, storyPredicate);
+                pricePredicates.add(mediaTypePredicateGroup);
+            }
+
+            // Gabungkan semua predikat price dengan OR di dalam kurung
+            if (!pricePredicates.isEmpty()) {
+                Predicate pricePredicateGroup = criteriaBuilder.or(pricePredicates.toArray(new Predicate[0]));
+                andPredicates.add(pricePredicateGroup);
+            }
+        }
 
         // Gabungkan semua predikat AND terlebih dahulu
         Predicate andPredicate = criteriaBuilder.and(andPredicates.toArray(new Predicate[0]));
 
-        System.out.println("ini udah di bagian bawah");
-        System.out.println("andPredicates: " + andPredicates);
-        System.out.println("orPredicates: " + orPredicates);
+        // Gabungkan semua predikat OR dalam kurung
+        Predicate orPredicateGroup = orPredicates.isEmpty() ? null : criteriaBuilder.or(orPredicates.toArray(new Predicate[0]));
 
-        // Gabungkan predikat AND dengan OR (untuk followers)
-        if (!orPredicates.isEmpty()) {
-            Predicate orPredicate = criteriaBuilder.or(orPredicates.toArray(new Predicate[0]));
-
-            System.out.println("or predicates kosong");
-            System.out.println("andPredicates: " + andPredicates);
-            System.out.println("orPredicates: " + orPredicates);
-            System.out.println("yang dibalikin: " + criteriaBuilder.and(andPredicate, orPredicate));
-
-            return criteriaBuilder.and(andPredicate, orPredicate); // Gabungkan AND dengan OR
+        // Gabungkan keduanya (AND dan OR)
+        if (orPredicateGroup != null) {
+            return criteriaBuilder.and(andPredicate, orPredicateGroup);
         }
-        System.out.println("yang dibalikin paling bawah: " + andPredicate);
-        return andPredicate; // Jika tidak ada OR, cukup return AND
+        return andPredicate; // Jika OR kosong, hanya kembalikan AND
+
     }
 
-    public InfluencerFilterResponseDto filterInfluencer(InfluencerFilterRequestDto influencerFilterRequestDto) {
+        public List<InfluencerFilterResponseDto> filterInfluencer(InfluencerFilterRequestDto influencerFilterRequestDto) {
         System.out.println(influencerFilterRequestDto);
         // Buat Predicate menggunakan toPredicate
         Specification<Influencer> spec = (root, query, criteriaBuilder) -> {
-            System.out.println("masuk ke spec");
-            System.out.println("toPre: " + toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto));
             return toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto);
         };
 
@@ -274,10 +198,74 @@ public class InfluencerService {
 
         // Ambil influencer berdasarkan predikat yang telah dibuat
         List<Influencer> influencers = influencerRepository.findAll(spec);
+        List<InfluencerFilterResponseDto> response = new ArrayList<>();
 //        return influencerRepository.findAll(spec);
         for (Influencer influencer: influencers){
             System.out.println("influencers: " + influencer.getUser().getName());
+
+            List<Category> categories = influencer.getCategories();
+            List<Map<String,Object>> categoryDto = new ArrayList<>();
+
+            for (Category category: categories){
+                Map<String,Object> newMap = new HashMap<>();
+                newMap.put("id", category.getId());
+                newMap.put("label", category.getLabel());
+                categoryDto.add(newMap);
+            }
+
+//            List<Map<String,Object>> categoryDtos = categories.stream().map(
+//                    item -> {
+//                        Map<String,Object> newMap = new HashMap<>();
+//                        newMap.put("id", item.getId());
+//                        newMap.put("label", item.getLabel());
+//                        categoryDto.add(newMap);
+//                        return newMap;
+//                    }
+//            ).toList();
+
+            String feedsPrice = "";
+            String reelsPrice = "";
+            String storyPrice = "";
+            List<InfluencerMediaType> mediaTypes = influencer.getInfluencerMediaTypes();
+            for(InfluencerMediaType mediaType: mediaTypes){
+                if(mediaType.getMediaType().getLabel().equalsIgnoreCase("feeds")){
+                    feedsPrice = mediaType.getPrice().toString();
+                }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("reels")){
+                    reelsPrice = mediaType.getPrice().toString();
+                }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("story")){
+                    storyPrice = mediaType.getPrice().toString();
+                }
+            }
+
+            for (Category category: categories){
+                Map<String,Object> newMap = new HashMap<>();
+                newMap.put("id", category.getId());
+                newMap.put("label", category.getLabel());
+                categoryDto.add(newMap);
+            }
+
+            //      Build responsenya
+            InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
+                    .id(influencer.getUser().getId())
+                    .name(influencer.getUser().getName())
+                    .email(influencer.getUser().getEmail())
+                    .location(influencer.getUser().getLocation().getLabel())
+                    .phone(influencer.getUser().getPhone())
+                    .gender(influencer.getGender().getLabel())
+                    .dob(influencer.getDob().toString())
+                    .feedsPrice(feedsPrice)
+                    .reelsPrice(reelsPrice)
+                    .storyPrice(storyPrice)
+                    .category(categoryDto)
+                    .userType(influencer.getUser().getUserType())
+                    .instagramId(influencer.getInstagramId())
+                    .isActive(influencer.getIsActive())
+                    .token(influencer.getToken())
+                    .build();
+
+            response.add(influencerFilterResponseDto);
         }
-        return null;
+
+        return response;
     }
 }
