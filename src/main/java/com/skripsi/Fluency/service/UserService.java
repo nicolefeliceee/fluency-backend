@@ -2,10 +2,7 @@ package com.skripsi.Fluency.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.skripsi.Fluency.model.dto.LoginInfluencerRequestDto;
-import com.skripsi.Fluency.model.dto.LoginResponseDto;
-import com.skripsi.Fluency.model.dto.LoginBrandRequestDto;
-import com.skripsi.Fluency.model.dto.SignupBrandRequestDto;
+import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.model.entity.*;
 import com.skripsi.Fluency.repository.*;
 import jakarta.transaction.Transactional;
@@ -17,8 +14,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -94,7 +96,11 @@ public class UserService {
 
 //            Kalau ga ketemu, return null
             if (influencer == null){
-                return null;
+                return LoginResponseDto.builder()
+                        .id(null)
+                        .name(null)
+                        .instagramId(instagramId)
+                        .build();
             }
 
 //            Kalau ketemu update token nya dulu di database
@@ -105,6 +111,7 @@ public class UserService {
             LoginResponseDto loginResponseDto = LoginResponseDto.builder()
                     .id(influencer.getUser().getId())
                     .name(influencer.getUser().getName())
+                    .instagramId(instagramId)
                     .build();
 
             return loginResponseDto;
@@ -174,6 +181,64 @@ public class UserService {
 
             Brand savedBrand = brandRepository.save(newBrand);
 
+//            sambungin user ke brand
+            savedUser.setBrand(savedBrand);
+            userRepository.save(savedUser);
+
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
+            throw ex;
+        }
+
+        return ResponseEntity.ok(requestDto);
+
+    }
+
+    @Transactional
+    public ResponseEntity<?> signUpInfluencer(SignupInfluencerRequestDto requestDto) {
+
+        try {
+
+//            check email exist
+            User check = userRepository.findByEmail(requestDto.getEmail());
+
+            if(check != null) {
+                return ResponseEntity.ok("Email already exists");
+            }
+
+
+//        create user dulu
+            Location location = locationRepository.findById(requestDto.getLocation()).orElse(null);
+
+            User newUser = User.builder()
+                    .name(requestDto.getName())
+                    .email(requestDto.getEmail())
+                    .phone(requestDto.getPhone())
+                    .location(location)
+                    .userType("brand")
+                    .build();
+
+            User savedUser = userRepository.save(newUser);
+
+//        habis itu create influencer
+            Gender found = genderRepository.findById(Integer.valueOf(requestDto.getGender())).orElse(null);
+
+            Influencer newInfluencer = Influencer.builder()
+                    .user(savedUser)
+                    .dob(LocalDate.parse(requestDto.getDob()))
+                    .instagramId(requestDto.getInstagramId())
+                    .token(requestDto.getToken())
+                    .gender(found)
+                    .isActive(false)
+                    .build();
+
+            Influencer savedInfluencer = influencerRepository.save(newInfluencer);
+
+
+            //            sambungin user ke influencer
+            savedUser.setInfluencer(savedInfluencer);
+            userRepository.save(savedUser);
+
         } catch(Exception ex) {
             System.out.println(ex.getMessage());
         }
@@ -183,9 +248,115 @@ public class UserService {
     }
 
 
+
     public ResponseEntity<?> findEmail(String email) {
         User check = userRepository.findByEmail(email);
 
-        return ResponseEntity.ok(check.getEmail());
+        if(check == null) {
+            return ResponseEntity.ok("");
+        }
+
+        return ResponseEntity.ok( check.getEmail());
+    }
+
+
+    public ResponseEntity<?> getProfile(String userId) {
+        try {
+            User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+            if(user == null) {
+                return null;
+            }
+
+            if(user.getUserType().equalsIgnoreCase("brand")) {
+
+                List<Map<String, String>> targetAge = new ArrayList<>();
+                targetAge = user.getBrand().getAges().stream().map(
+                        item -> {
+                            Map<String, String> newMap = new HashMap<>();
+                            newMap.put("id", String.valueOf(item.getId()));
+                            newMap.put("label", item.getLabel());
+                            return newMap;
+                        }
+                ).collect(Collectors.toList());
+
+                List<Map<String, String>> targetLocation = new ArrayList<>();
+                targetLocation = user.getBrand().getLocations().stream().map(
+                        item -> {
+                            Map<String, String> newMap = new HashMap<>();
+                            newMap.put("id", String.valueOf(item.getId()));
+                            newMap.put("label", item.getLabel());
+                            return newMap;
+                        }
+                ).collect(Collectors.toList());
+
+                List<Map<String, String>> targetGender = new ArrayList<>();
+                targetGender = user.getBrand().getGenders().stream().map(
+                        item -> {
+                            Map<String, String> newMap = new HashMap<>();
+                            newMap.put("id", String.valueOf(item.getId()));
+                            newMap.put("label", item.getLabel());
+                            return newMap;
+                        }
+                ).collect(Collectors.toList());
+
+                BrandProfileDto brandProfileDto = BrandProfileDto.builder()
+                        .name(user.getName())
+                        .category(user.getBrand().getCategory().getLabel())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .location(user.getLocation().getLabel())
+                        .targetAgeRange(targetAge)
+                        .targetGender(targetGender)
+                        .targetLocation(targetLocation)
+                        .build();
+
+                return ResponseEntity.ok(brandProfileDto);
+
+            } else if(user.getUserType().equalsIgnoreCase("influencer")) {
+                List<Map<String, String>> categories = new ArrayList<>();
+                categories = user.getInfluencer().getCategories().stream().map(
+                        item -> {
+                            Map<String, String> newMap = new HashMap<>();
+                            newMap.put("id", String.valueOf(item.getId()));
+                            newMap.put("label", item.getLabel());
+                            return newMap;
+                        }
+                ).collect(Collectors.toList());
+
+                String feedsPrice = user.getInfluencer().getInfluencerMediaTypes().stream().filter(
+                        item -> item.getMediaType().getLabel().equalsIgnoreCase("feeds")
+                ).toString();
+
+                String reelsPrice = user.getInfluencer().getInfluencerMediaTypes().stream().filter(
+                        item -> item.getMediaType().getLabel().equalsIgnoreCase("reels")
+                ).toString();
+
+                String storyPrice = user.getInfluencer().getInfluencerMediaTypes().stream().filter(
+                        item -> item.getMediaType().getLabel().equalsIgnoreCase("story")
+                ).toString();
+
+                InfluencerProfileDto profileDto = InfluencerProfileDto.builder()
+                        .name(user.getName())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .gender(user.getInfluencer().getGender().getLabel())
+                        .instagramId(user.getInfluencer().getInstagramId())
+                        .category(categories)
+                        .token(user.getInfluencer().getToken())
+                        .feedsPrice(feedsPrice)
+                        .reelsPrice(reelsPrice)
+                        .storyPrice(storyPrice)
+                        .build();
+
+                return ResponseEntity.ok(profileDto);
+            }
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
+            throw ex;
+        }
+
+
+        return null;
     }
 }

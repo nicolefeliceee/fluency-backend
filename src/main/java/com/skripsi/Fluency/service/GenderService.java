@@ -26,6 +26,7 @@ public class GenderService {
             newMap.put("id", item.getId().toString());
             newMap.put("label", item.getLabel());
             newMap.put("logo", item.getLogo());
+            newMap.put("active_logo", item.getActiveLogo());
 
             response.add(newMap);
         }

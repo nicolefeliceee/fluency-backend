@@ -48,7 +48,20 @@ public class UserController {
     public ResponseEntity<?> signupBrand(@RequestBody SignupBrandRequestDto requestDto) {
         System.out.println(requestDto);
 
-        ResponseEntity<?> response = userService.signUpBrand(requestDto);
+        try {
+            ResponseEntity<?> response = userService.signUpBrand(requestDto);
+
+            return response;
+        } catch(Exception ex) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("influencer/signup")
+    public ResponseEntity<?> signupInfluencer(@RequestBody SignupInfluencerRequestDto requestDto) {
+        System.out.println(requestDto);
+
+        ResponseEntity<?> response = userService.signUpInfluencer(requestDto);
 
         return response;
     }
@@ -56,6 +69,16 @@ public class UserController {
     @GetMapping("validation/email/{email}")
     public ResponseEntity<?> validateEmail(@PathVariable String email) {
         return userService.findEmail(email);
+    }
+
+    @GetMapping("profile/{user-id}")
+    public ResponseEntity<?>  getProfile(@PathVariable(name = "user-id") String userId) {
+
+        try {
+            return ResponseEntity.ok(userService.getProfile(userId));
+        } catch(Exception ex) {
+            return ResponseEntity.internalServerError().build() ;
+        }
     }
 
 }

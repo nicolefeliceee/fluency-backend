@@ -1,14 +1,21 @@
 package com.skripsi.Fluency.model.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
 @Table
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Influencer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,7 +30,7 @@ public class Influencer {
     private Gender gender;
 
     @Column
-    private LocalDateTime dob;
+    private LocalDate dob;
 
     @Column(length = 55)
     private String instagramId;

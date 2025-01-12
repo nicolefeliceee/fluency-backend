@@ -9,4 +9,5 @@ public class LoginResponseDto {
     // response ke frontend untuk brand dan influencer login
     private Integer id;
     private String name;
+    private String instagramId;
 }
