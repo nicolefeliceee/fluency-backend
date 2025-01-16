@@ -32,9 +32,9 @@ public class UserController {
     public ResponseEntity<?>  loginInfluencer(@RequestBody LoginInfluencerRequestDto loginInfluencerRequestDto){
         try {
             LoginResponseDto response = userService.loginInfluencer(loginInfluencerRequestDto);
-            if (response == null){
-                return ResponseEntity.notFound().build();
-            }
+//            if (response == null){
+//                return ResponseEntity.notFound().build();
+//            }
             return ResponseEntity.ok(response);
         } catch(Exception e) {
             System.out.println(e.getMessage());

@@ -17,7 +17,7 @@ public class StatusController {
     @Autowired
     public StatusService service;
 
-    @GetMapping()
+    @GetMapping
     public ResponseEntity<?> getAllStatus() {
         List<Map<String, Object>> response =  service.getAllStatus();
         return ResponseEntity.ok(response);

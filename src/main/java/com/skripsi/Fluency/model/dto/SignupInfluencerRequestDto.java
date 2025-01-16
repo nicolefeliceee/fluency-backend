@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class SignupInfluencerRequestDto {
+    private String userId;
     private String name;
     private String email;
     private Integer location;
