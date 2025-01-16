@@ -1,21 +1,22 @@
 package com.skripsi.Fluency.service;
 
-import com.skripsi.Fluency.model.dto.InfluencerFilterRequestDto;
-import com.skripsi.Fluency.model.dto.InfluencerFilterResponseDto;
-import com.skripsi.Fluency.model.dto.LoginBrandRequestDto;
-import com.skripsi.Fluency.model.dto.LoginResponseDto;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.model.entity.*;
 import com.skripsi.Fluency.repository.InfluencerRepository;
-import com.skripsi.Fluency.repository.UserRepository;
 import jakarta.persistence.criteria.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Range;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import java.util.stream.Collectors;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -173,6 +174,102 @@ public class InfluencerService {
             }
         }
 
+        // 3. Gender Filter
+        if (!influencerFilterRequestDto.getGender().isEmpty()) {
+            List<Predicate> genderPredicates = new ArrayList<>();
+
+            // Loop untuk setiap gender yang dipilih
+            for (Integer genderId : influencerFilterRequestDto.getGender()) {
+                // Tambahkan predikat untuk gender
+                Predicate genderPredicate = criteriaBuilder.equal(root.get("gender").get("id"), genderId);
+                genderPredicates.add(genderPredicate);
+            }
+
+            // Gabungkan semua predikat gender dengan OR (karena sifatnya multiple select)
+            if (!genderPredicates.isEmpty()) {
+                Predicate genderPredicateGroup = criteriaBuilder.or(genderPredicates.toArray(new Predicate[0]));
+                andPredicates.add(genderPredicateGroup);
+            }
+        }
+
+        // 4. Media Type Filter
+        if (!influencerFilterRequestDto.getMedia().isEmpty()) {
+            List<Predicate> mediaTypePredicates = new ArrayList<>();
+
+            // Loop untuk setiap media type yang dipilih
+            for (Integer mediaTypeId : influencerFilterRequestDto.getMedia()) {
+                // Tambahkan predikat untuk media type
+                Predicate mediaTypePredicate = criteriaBuilder.equal(
+                        root.join("influencerMediaTypes").get("mediaType").get("id"),
+                        mediaTypeId
+                );
+                mediaTypePredicates.add(mediaTypePredicate);
+            }
+
+            // Gabungkan semua predikat media type dengan OR (karena sifatnya multiple select)
+            if (!mediaTypePredicates.isEmpty()) {
+                Predicate mediaTypePredicateGroup = criteriaBuilder.or(mediaTypePredicates.toArray(new Predicate[0]));
+                andPredicates.add(mediaTypePredicateGroup);
+            }
+        }
+
+        // 5. Location Filter
+        if (!influencerFilterRequestDto.getLocation().isEmpty()) {
+            List<Predicate> locationPredicates = new ArrayList<>();
+
+            // Loop untuk setiap location ID yang dipilih
+            for (Integer locationId : influencerFilterRequestDto.getLocation()) {
+                // Tambahkan predikat untuk location
+                Predicate locationPredicate = criteriaBuilder.equal(
+                        root.join("user").join("location").get("id"),
+                        locationId
+                );
+                locationPredicates.add(locationPredicate);
+            }
+
+            // Gabungkan semua predikat location dengan OR (karena sifatnya multiple select)
+            if (!locationPredicates.isEmpty()) {
+                Predicate locationPredicateGroup = criteriaBuilder.or(locationPredicates.toArray(new Predicate[0]));
+                andPredicates.add(locationPredicateGroup);
+            }
+        }
+
+        // 6. Rating Filter
+        if (!influencerFilterRequestDto.getRating().isEmpty()) {
+            List<Predicate> ratingPredicates = new ArrayList<>();
+
+            // Loop untuk setiap rating yang dipilih
+            for (String ratingInput : influencerFilterRequestDto.getRating()) {
+                try {
+                    // Ambil angka rating dari input (misalnya "1 star" menjadi 1)
+                    Integer ratingValue = Integer.parseInt(ratingInput.split(" ")[0]);
+
+                    // Hitung rentang rating
+                    Double minRating = ratingValue.doubleValue();
+                    Double maxRating = minRating + 0.99;
+
+                    // Subquery untuk menghitung rata-rata rating influencer
+                    Subquery<Double> avgRatingSubquery = query.subquery(Double.class);
+                    Root<Review> reviewRoot = avgRatingSubquery.from(Review.class);
+                    avgRatingSubquery.select(criteriaBuilder.avg(reviewRoot.get("rating")))
+                            .where(criteriaBuilder.equal(reviewRoot.get("influencer").get("id"), root.get("id")));
+
+                    // Predikat untuk rentang rating
+                    Predicate ratingPredicate = criteriaBuilder.between(avgRatingSubquery, minRating, maxRating);
+                    ratingPredicates.add(ratingPredicate);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid rating format: " + ratingInput);
+                }
+            }
+
+            // Gabungkan semua predikat rating dengan OR (karena sifatnya multiple select)
+            if (!ratingPredicates.isEmpty()) {
+                Predicate ratingPredicateGroup = criteriaBuilder.or(ratingPredicates.toArray(new Predicate[0]));
+                andPredicates.add(ratingPredicateGroup);
+            }
+        }
+
+
         // Gabungkan semua predikat AND terlebih dahulu
         Predicate andPredicate = criteriaBuilder.and(andPredicates.toArray(new Predicate[0]));
 
@@ -187,17 +284,411 @@ public class InfluencerService {
 
     }
 
-        public List<InfluencerFilterResponseDto> filterInfluencer(InfluencerFilterRequestDto influencerFilterRequestDto) {
+//    ini untuk filter by followers (API IG)
+    public List<Influencer> filterInfluencersByFollowers(List<Influencer> filteredInfluencers, List<String> followerRanges) {
+        List<Influencer> result = new ArrayList<>();
+
+        for (Influencer influencer : filteredInfluencers) {
+            String token = influencer.getToken(); // Token Instagram
+            String igid = influencer.getInstagramId();
+            if (token == null || token.isEmpty()) {
+                continue;
+            }
+            if (igid == null || igid.isEmpty()) {
+                continue;
+            }
+
+            // Panggil API Instagram untuk mendapatkan jumlah followers
+            int followers = getFollowersFromInstagramApi(token,igid);
+            System.out.println("followers: " + followers);
+
+            // Filter berdasarkan range followers
+            boolean match = false;
+            for (String range : followerRanges) {
+                System.out.println("range: " + range);
+                if (isFollowersInRange(followers, range)) {
+                    match = true;
+                    System.out.println("matchkah?" + match);
+                    break;
+                }
+            }
+
+            if (match) {
+                result.add(influencer);
+            }
+        }
+        return result;
+    }
+
+    // Fungsi untuk memeriksa apakah jumlah followers masuk dalam range
+    private boolean isFollowersInRange(int followers, String range) {
+        range = range.trim();
+        if (range.startsWith(">")) {
+            // Contoh "> 1000k"
+            int min = parseFollowers(range.substring(1).trim());
+            return followers > min;
+        } else if (range.contains("-")) {
+            // Contoh "10k - 100k"
+            String[] parts = range.split("-");
+            int min = parseFollowers(parts[0].trim());
+            int max = parseFollowers(parts[1].trim());
+            return followers >= min && followers <= max;
+        } else {
+            // Jika format tidak valid
+            throw new IllegalArgumentException("Invalid range format: " + range);
+        }
+    }
+
+    // Fungsi untuk mengonversi format followers ke angka
+    private int parseFollowers(String value) {
+        value = value.toLowerCase();
+        if (value.endsWith("k")) {
+            return Integer.parseInt(value.replace("k", "")) * 1000;
+        } else if (value.endsWith("m")) {
+            return Integer.parseInt(value.replace("m", "")) * 1000000;
+        } else {
+            return Integer.parseInt(value);
+        }
+    }
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value(value = "${base.url}")
+    private String baseUrl;
+
+    // Get followers dari API Instagram
+    private int getFollowersFromInstagramApi(String token, String igid) {
+        try{
+//            Hit URL API Instagram
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid)
+                    .queryParam("fields", "followers_count")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+//            Ambil data saja
+            String data = jsonNode.get("followers_count").toString();
+
+            Integer foll = Integer.parseInt(data);
+
+            return foll;
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            return 0;
+        }
+    }
+
+
+    // Filter influencer berdasarkan age range yang dipilih
+    public List<Influencer> filterByAudienceAge(List<Influencer> influencers, List<String> selectedAgeRanges) {
+        List<Influencer> filteredInfluencers = new ArrayList<>();
+        for (Influencer influencer : influencers) {
+            System.out.println("influencer yang masuk looping: " + influencer.getUser().getName());
+            // Ambil data demographics followers dari Instagram API (dari token influencer)
+            List<AudienceAgeDto> demographics = getAudienceDemographics(influencer.getToken(),influencer.getInstagramId());
+            System.out.println("demo: " + demographics);
+
+            // Hitung total followers dari semua age range
+            int totalFollowers = demographics.stream()
+                    .mapToInt(AudienceAgeDto::getValue)
+                    .sum();
+//            totalFollowers = 30;
+            System.out.println("totalFollowers: " + totalFollowers);
+
+            // Hitung rata-rata followers dari semua age range
+            double averageFollowersPerRange = totalFollowers / (double) demographics.size();
+            System.out.println("averageFollowersPerRange: " + averageFollowersPerRange);
+
+            System.out.println("selected age range " + selectedAgeRanges);
+            boolean hasValidRange = demographics.stream()
+                    .filter(demographic -> {
+                        // Format ulang selectedAgeRanges agar sesuai dengan demographic.getAgeRange
+                        List<String> formattedSelectedAgeRanges = selectedAgeRanges.stream()
+                                .map(range -> {
+                                    if (range.startsWith(">")) {
+                                        return range.replace("> ", "") + "+";
+                                    } else {
+                                        return range.replace(" ", "");
+                                    }
+                                })
+                                .collect(Collectors.toList());
+
+                        return formattedSelectedAgeRanges.contains(demographic.getAgeRange());
+                    })
+                    .anyMatch(demographic -> demographic.getValue() >= averageFollowersPerRange);
+            System.out.println("hasValidRange: " + hasValidRange);
+
+            // Tambahkan influencer ke hasil jika ada age range yang memenuhi kriteria
+            if (hasValidRange) {
+                System.out.println("masuk valid range");
+                System.out.println(influencer.getUser().getName());
+                filteredInfluencers.add(influencer);
+            }
+        }
+
+        return filteredInfluencers;
+    }
+
+    // Ambil data demographics audience age dari Instagram API
+    private List<AudienceAgeDto> getAudienceDemographics(String token, String igid) {
+
+        try{
+            System.out.println("masuk ke hit api ig");
+//            Hit URL API Instagram
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "follower_demographics")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("breakdown", "age")
+                    .queryParam("access_token", token);
+
+            System.out.println("builder: " + builder.toUriString());
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+            System.out.println("response: " + response);
+
+            String responseBody = (String) response.getBody();
+            System.out.println("response body: " + responseBody);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode root = objectMapper.readTree(responseBody);
+            System.out.println("root: " + root);
+
+            // Navigasi ke data demographics
+            JsonNode breakdowns = root.path("data").get(0)
+                    .path("total_value")
+                    .path("breakdowns").get(0)
+                    .path("results");
+
+            System.out.println("breakdowns: " + breakdowns);
+
+            List<AudienceAgeDto> audienceAgeDtos = new ArrayList<>();
+
+            // Iterasi melalui setiap hasil
+            for (JsonNode result : breakdowns) {
+                String ageRange = result.path("dimension_values").get(0).asText();
+                System.out.println("ageRange: " + ageRange);
+                int value = result.path("value").asInt();
+                System.out.println("value: " + value);
+
+                // Map ke objek AudienceAge
+                audienceAgeDtos.add(AudienceAgeDto.builder()
+                        .ageRange(ageRange)
+                        .value(value)
+                        .build());
+            }
+            System.out.println("audience age list: " + audienceAgeDtos);
+            return audienceAgeDtos;
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            return null;
+        }
+    }
+
+    // Filter influencer berdasarkan gender yang dipilih
+    public List<Influencer> filterByGenderAudience(List<Influencer> influencers, List<Integer> selectedGenderAudiences) {
+        List<Influencer> filteredByGenderAudience = new ArrayList<>();
+
+        for (Influencer influencer : influencers) {
+            // Panggil fungsi untuk mendapatkan data followers berdasarkan gender
+            System.out.println("influencer yang masuk looping gender: " + influencer.getUser().getName());
+            List<AudienceGenderDto> genderFollowerData = getGenderFollowerData(influencer.getToken(), influencer.getInstagramId());
+            System.out.println("genderFollowerData: " + genderFollowerData);
+
+            // Cek apakah salah satu gender yang dipilih memenuhi kriteria >= 50% dari total followers
+            boolean isValid = isGenderAudienceValid(genderFollowerData, selectedGenderAudiences);
+            System.out.println("isValid: " + isValid);
+
+            // Tambahkan influencer ke hasil jika valid
+            if (isValid) {
+                System.out.println(influencer.getUser().getName() + " masuk valid range");
+                filteredByGenderAudience.add(influencer);
+            }
+        }
+
+        return filteredByGenderAudience;
+    }
+
+    private List<AudienceGenderDto> getGenderFollowerData(String token, String igid) {
+        // Panggil API Instagram
+        try{
+            System.out.println("masuk ke hit api ig untuk gender");
+//            Hit URL API Instagram
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "follower_demographics")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("breakdown", "gender")
+                    .queryParam("access_token", token);
+
+            System.out.println("builder: " + builder.toUriString());
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+            System.out.println("response: " + response);
+
+            String responseBody = (String) response.getBody();
+            System.out.println("response body: " + responseBody);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode root = objectMapper.readTree(responseBody);
+            System.out.println("root: " + root);
+
+            // Navigasi ke data demographics
+            JsonNode breakdowns = root.path("data").get(0)
+                    .path("total_value")
+                    .path("breakdowns").get(0)
+                    .path("results");
+
+            System.out.println("breakdowns: " + breakdowns);
+
+            List<AudienceGenderDto> audienceGenderDtos = new ArrayList<>();
+
+            // Iterasi melalui setiap hasil
+            for (JsonNode result : breakdowns) {
+                String gender = result.path("dimension_values").get(0).asText();
+                System.out.println("gender: " + gender);
+                int value = result.path("value").asInt();
+                System.out.println("value: " + value);
+
+                // Map ke objek AudienceGender
+                audienceGenderDtos.add(AudienceGenderDto.builder()
+                        .gender(gender)
+                        .value(value)
+                        .build());
+            }
+            System.out.println("audience gender list: " + audienceGenderDtos);
+            return audienceGenderDtos;
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isGenderAudienceValid(
+            List<AudienceGenderDto> genderFollowerData,
+            List<Integer> selectedGenderAudiences) {
+
+        // Map angka ke string gender
+        Map<Integer, String> genderMap = Map.of(
+                1, "M",  // Male
+                2, "F"   // Female
+        );
+
+        // Hitung total followers yang valid (hanya "F" dan "M")
+        int validTotalFollowers = genderFollowerData.stream()
+                .filter(genderData -> genderData.getGender().equalsIgnoreCase("F") ||
+                        genderData.getGender().equalsIgnoreCase("M"))
+                .mapToInt(AudienceGenderDto::getValue)
+                .sum();
+
+        System.out.println("validTotalFollowers: " + validTotalFollowers);
+
+        if (validTotalFollowers == 0) {
+            return false; // Jika validTotalFollowers 0, otomatis tidak valid
+        }
+
+        for (Integer selectedGender : selectedGenderAudiences) {
+            String genderKey = genderMap.get(selectedGender);
+
+            if (genderKey == null) {
+                continue; // Gender tidak valid, skip
+            }
+
+            // Cari nilai followers untuk gender yang dipilih
+            int genderValue = genderFollowerData.stream()
+                    .filter(genderData -> genderData.getGender().equalsIgnoreCase(genderKey))
+                    .mapToInt(AudienceGenderDto::getValue)
+                    .sum();
+
+            // Periksa apakah nilai followers >= 40% dari total followers yang valid
+            if (genderValue >= (validTotalFollowers * 0.4)) {
+                return true; // Salah satu gender memenuhi kriteria
+            }
+        }
+
+        return false; // Tidak ada gender yang memenuhi kriteria
+    }
+
+    public boolean hasAnyFilter(InfluencerFilterRequestDto dto) {
+        return !isListEmpty(dto.getMedia()) ||
+                !isListEmpty(dto.getGender()) ||
+                !isListEmpty(dto.getAge()) ||
+                !isListEmpty(dto.getPrice()) ||
+                !isListEmpty(dto.getRating()) ||
+                !isListEmpty(dto.getLocation());
+    }
+
+    private boolean isListEmpty(List<?> list) {
+        return list == null || list.isEmpty();
+    }
+
+    public List<InfluencerFilterResponseDto> filterInfluencer(InfluencerFilterRequestDto influencerFilterRequestDto) {
         System.out.println(influencerFilterRequestDto);
-        // Buat Predicate menggunakan toPredicate
-        Specification<Influencer> spec = (root, query, criteriaBuilder) -> {
-            return toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto);
-        };
 
-        System.out.println("spec: " + spec);
+        boolean hasFilter = hasAnyFilter(influencerFilterRequestDto);
+        List<Influencer> influencers1 = new ArrayList<>();
 
-        // Ambil influencer berdasarkan predikat yang telah dibuat
-        List<Influencer> influencers = influencerRepository.findAll(spec);
+        if(hasFilter){
+            // Buat Predicate menggunakan toPredicate
+            Specification<Influencer> spec = (root, query, criteriaBuilder) -> {
+                return toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto);
+            };
+
+            // Ambil influencer berdasarkan predikat yang telah dibuat
+            influencers1 = influencerRepository.findAll(spec);
+
+            System.out.println("spec: " + spec);
+        } else{
+            influencers1 = influencerRepository.findAll();
+        }
+
+        System.out.println("foll: " + influencerFilterRequestDto.getFollowers());
+        System.out.println("age aud: " + influencerFilterRequestDto.getAgeAudience());
+
+        boolean isFollowersEmpty = influencerFilterRequestDto.getFollowers() == null
+                || influencerFilterRequestDto.getFollowers().isEmpty();
+
+        List<Influencer> influencers2 = new ArrayList<>();
+        influencers2 = influencers1;
+//        Untuk filter by followers
+        if (!isFollowersEmpty){
+            System.out.println("masuk filter by foll");
+            influencers2 = filterInfluencersByFollowers(influencers1, influencerFilterRequestDto.getFollowers());
+        }
+
+        boolean isAudienceAgeEmpty = influencerFilterRequestDto.getAgeAudience() == null
+                || influencerFilterRequestDto.getAgeAudience().isEmpty();
+
+        List<Influencer> influencers3 = new ArrayList<>();
+        influencers3 = influencers2;
+//        Untuk filter by audience age
+        if (!isAudienceAgeEmpty){
+            System.out.println("masuk filter by age aud");
+            influencers3 = filterByAudienceAge(influencers2, influencerFilterRequestDto.getAgeAudience());
+        }
+
+        boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
+                || influencerFilterRequestDto.getGenderAudience().isEmpty();
+
+        List<Influencer> influencers = new ArrayList<>();
+        influencers = influencers3;
+//        Untuk filter by audience gender
+        if (!isAudienceGenderEmpty){
+            System.out.println("masuk filter by gender aud");
+            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+        }
+
         List<InfluencerFilterResponseDto> response = new ArrayList<>();
 //        return influencerRepository.findAll(spec);
         for (Influencer influencer: influencers){
