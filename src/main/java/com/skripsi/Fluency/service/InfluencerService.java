@@ -14,13 +14,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 
 @Service
@@ -759,4 +757,156 @@ public class InfluencerService {
 
         return response;
     }
+
+//    public List<InfluencerFilterResponseDto> sortInfluencer(SortRequestDto sortRequestDto) {
+//        System.out.println(sortRequestDto);
+//
+//        return null;
+//    }
+
+
+
+    public List<InfluencerFilterResponseDto> sortInfluencer(List<Integer> sort, InfluencerFilterRequestDto influencerFilterRequestDto) {
+        System.out.println("influencerFilterRequestDto" + influencerFilterRequestDto);
+        System.out.println("sort" + sort);
+
+        boolean hasFilter = hasAnyFilter(influencerFilterRequestDto);
+        List<Influencer> influencers1 = new ArrayList<>();
+
+        if(hasFilter){
+            // Buat Predicate menggunakan toPredicate
+            Specification<Influencer> spec = (root, query, criteriaBuilder) -> {
+                return toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto);
+            };
+
+            // Ambil influencer berdasarkan predikat yang telah dibuat
+            influencers1 = influencerRepository.findAll(spec);
+
+            System.out.println("spec: " + spec);
+        } else{
+            influencers1 = influencerRepository.findAll();
+        }
+
+        System.out.println("foll: " + influencerFilterRequestDto.getFollowers());
+        System.out.println("age aud: " + influencerFilterRequestDto.getAgeAudience());
+
+        boolean isFollowersEmpty = influencerFilterRequestDto.getFollowers() == null
+                || influencerFilterRequestDto.getFollowers().isEmpty();
+
+        List<Influencer> influencers2 = new ArrayList<>();
+        influencers2 = influencers1;
+//        Untuk filter by followers
+        if (!isFollowersEmpty){
+            System.out.println("masuk filter by foll");
+            influencers2 = filterInfluencersByFollowers(influencers1, influencerFilterRequestDto.getFollowers());
+        }
+
+        boolean isAudienceAgeEmpty = influencerFilterRequestDto.getAgeAudience() == null
+                || influencerFilterRequestDto.getAgeAudience().isEmpty();
+
+        List<Influencer> influencers3 = new ArrayList<>();
+        influencers3 = influencers2;
+//        Untuk filter by audience age
+        if (!isAudienceAgeEmpty){
+            System.out.println("masuk filter by age aud");
+            influencers3 = filterByAudienceAge(influencers2, influencerFilterRequestDto.getAgeAudience());
+        }
+
+        boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
+                || influencerFilterRequestDto.getGenderAudience().isEmpty();
+
+        List<Influencer> influencers = new ArrayList<>();
+        influencers = influencers3;
+//        Untuk filter by audience gender
+        if (!isAudienceGenderEmpty){
+            System.out.println("masuk filter by gender aud");
+            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+        }
+
+
+//        ini untuk sort
+        // Sort berdasarkan parameter
+        if (sort.get(0) == 1) {
+            System.out.println("INI MASUK KE SORT POPULAR");
+            influencers.sort(Comparator.comparing(influencer -> influencer.getProjectHeaders().size(), Comparator.reverseOrder()));
+        } else if (sort.get(0) == 3) { // Sort by rating
+            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
+        } else if (sort.get(0) == 2) { // Sort by price
+            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+        }
+
+
+
+//      Mapping response
+        List<InfluencerFilterResponseDto> response = new ArrayList<>();
+//        return influencerRepository.findAll(spec);
+        for (Influencer influencer: influencers){
+            System.out.println("influencers: " + influencer.getUser().getName());
+
+            List<Category> categories = influencer.getCategories();
+            List<Map<String,Object>> categoryDto = new ArrayList<>();
+
+            for (Category category: categories){
+                Map<String,Object> newMap = new HashMap<>();
+                newMap.put("id", category.getId());
+                newMap.put("label", category.getLabel());
+                categoryDto.add(newMap);
+            }
+
+//            List<Map<String,Object>> categoryDtos = categories.stream().map(
+//                    item -> {
+//                        Map<String,Object> newMap = new HashMap<>();
+//                        newMap.put("id", item.getId());
+//                        newMap.put("label", item.getLabel());
+//                        categoryDto.add(newMap);
+//                        return newMap;
+//                    }
+//            ).toList();
+
+            String feedsPrice = "";
+            String reelsPrice = "";
+            String storyPrice = "";
+            List<InfluencerMediaType> mediaTypes = influencer.getInfluencerMediaTypes();
+            for(InfluencerMediaType mediaType: mediaTypes){
+                if(mediaType.getMediaType().getLabel().equalsIgnoreCase("feeds")){
+                    feedsPrice = mediaType.getPrice().toString();
+                }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("reels")){
+                    reelsPrice = mediaType.getPrice().toString();
+                }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("story")){
+                    storyPrice = mediaType.getPrice().toString();
+                }
+            }
+
+            for (Category category: categories){
+                Map<String,Object> newMap = new HashMap<>();
+                newMap.put("id", category.getId());
+                newMap.put("label", category.getLabel());
+                categoryDto.add(newMap);
+            }
+
+            //      Build responsenya
+            InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
+                    .id(influencer.getUser().getId())
+                    .name(influencer.getUser().getName())
+                    .email(influencer.getUser().getEmail())
+                    .location(influencer.getUser().getLocation().getLabel())
+                    .phone(influencer.getUser().getPhone())
+                    .gender(influencer.getGender().getLabel())
+                    .dob(influencer.getDob().toString())
+                    .feedsPrice(feedsPrice)
+                    .reelsPrice(reelsPrice)
+                    .storyPrice(storyPrice)
+                    .category(categoryDto)
+                    .userType(influencer.getUser().getUserType())
+                    .instagramId(influencer.getInstagramId())
+                    .isActive(influencer.getIsActive())
+                    .token(influencer.getToken())
+                    .build();
+
+            response.add(influencerFilterResponseDto);
+        }
+
+        return response;
+    }
+
 }
