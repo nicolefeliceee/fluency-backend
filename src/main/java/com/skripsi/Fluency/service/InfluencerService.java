@@ -15,10 +15,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import java.time.LocalDate;
+
+import static org.springframework.util.StringUtils.capitalize;
 
 
 @Service
@@ -383,6 +387,32 @@ public class InfluencerService {
         }
     }
 
+    // Get followers dari API Instagram
+    private String getProfilePicture(String token, String igid) {
+        try{
+//            Hit URL API Instagram
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid)
+                    .queryParam("fields", "profile_picture_url")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+//            Ambil data saja
+            String data = jsonNode.get("profile_picture_url").toString();
+
+            return data;
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            return null;
+        }
+    }
+
 
     // Filter influencer berdasarkan age range yang dipilih
     public List<Influencer> filterByAudienceAge(List<Influencer> influencers, List<String> selectedAgeRanges) {
@@ -631,6 +661,40 @@ public class InfluencerService {
         return list == null || list.isEmpty();
     }
 
+    public static String formatPrice(String price) {
+        System.out.println("ini udah masuk di formatprice");
+        if (price.isEmpty()) {
+            return "";
+        }
+        // Format angka dengan titik (locale Indonesia)
+        NumberFormat formatter = NumberFormat.getInstance(new Locale("id", "ID"));
+        return formatter.format(Long.parseLong(price));
+    }
+
+    public static String formatFollowers(int followers) {
+        System.out.println("ini lagi di format followers");
+        if (followers >= 1_000_000) {
+            return followers / 1_000_000 + "M";
+        } else if (followers >= 1_000) {
+            return followers / 1_000 + "k";
+        }
+        return String.valueOf(followers);
+    }
+//    public static Integer formatFollowers(int followers) {
+//        if (followers >= 1_000_000) {
+//            return followers / 1_000_000; // Mengembalikan jumlah jutaan
+//        } else if (followers >= 1_000) {
+//            return followers / 1_000; // Mengembalikan jumlah ribuan
+//        }
+//        return followers; // Mengembalikan nilai asli jika kurang dari 1.000
+//    }
+
+    public static Double formatRating(double rating) {
+        System.out.println("ini lagi di format rating");
+        DecimalFormat decimalFormat = new DecimalFormat("#.##");
+        return Double.valueOf(decimalFormat.format(rating));
+    }
+
     public List<InfluencerFilterResponseDto> filterInfluencer(InfluencerFilterRequestDto influencerFilterRequestDto) {
         System.out.println(influencerFilterRequestDto);
 
@@ -692,15 +756,29 @@ public class InfluencerService {
         for (Influencer influencer: influencers){
             System.out.println("influencers: " + influencer.getUser().getName());
 
+
+            Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+            Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
+
+
+            if (averageRating == null) {
+                averageRating = 0.0; // Default jika tidak ada review
+            }
+
+            if (totalReviews == null) {
+                totalReviews = 0; // Default jika tidak ada review
+            }
+
             List<Category> categories = influencer.getCategories();
             List<Map<String,Object>> categoryDto = new ArrayList<>();
 
-            for (Category category: categories){
-                Map<String,Object> newMap = new HashMap<>();
-                newMap.put("id", category.getId());
-                newMap.put("label", category.getLabel());
-                categoryDto.add(newMap);
-            }
+//            for (Category category: categories){
+//                System.out.println("ini di bagian category");
+//                Map<String,Object> newMap = new HashMap<>();
+//                newMap.put("id", category.getId());
+//                newMap.put("label", category.getLabel());
+//                categoryDto.add(newMap);
+//            }
 
 //            List<Map<String,Object>> categoryDtos = categories.stream().map(
 //                    item -> {
@@ -726,6 +804,26 @@ public class InfluencerService {
                 }
             }
 
+            // Cari harga termurah
+            int minPrice = Integer.MAX_VALUE; // Nilai awal sebagai infinity
+
+            if (!feedsPrice.isEmpty()) {
+                minPrice = Math.min(minPrice, Integer.parseInt(feedsPrice));
+            }
+            if (!reelsPrice.isEmpty()) {
+                minPrice = Math.min(minPrice, Integer.parseInt(reelsPrice));
+            }
+            if (!storyPrice.isEmpty()) {
+                minPrice = Math.min(minPrice, Integer.parseInt(storyPrice));
+            }
+
+// Validasi jika tidak ada harga yang ditemukan
+            if (minPrice == Integer.MAX_VALUE) {
+                minPrice = 0; // Tidak ada harga yang ditemukan
+            }
+
+            System.out.println("Harga termurah: " + minPrice);
+
             for (Category category: categories){
                 Map<String,Object> newMap = new HashMap<>();
                 newMap.put("id", category.getId());
@@ -738,21 +836,47 @@ public class InfluencerService {
                     .id(influencer.getUser().getId())
                     .name(influencer.getUser().getName())
                     .email(influencer.getUser().getEmail())
-                    .location(influencer.getUser().getLocation().getLabel())
+                    .location(capitalize(influencer.getUser().getLocation().getLabel()))
                     .phone(influencer.getUser().getPhone())
                     .gender(influencer.getGender().getLabel())
                     .dob(influencer.getDob().toString())
-                    .feedsPrice(feedsPrice)
-                    .reelsPrice(reelsPrice)
-                    .storyPrice(storyPrice)
+                    .feedsprice(formatPrice(feedsPrice))
+                    .reelsprice(formatPrice(reelsPrice))
+                    .storyprice(formatPrice(storyPrice))
                     .category(categoryDto)
-                    .userType(influencer.getUser().getUserType())
-                    .instagramId(influencer.getInstagramId())
-                    .isActive(influencer.getIsActive())
+                    .usertype(influencer.getUser().getUserType())
+                    .instagramid(influencer.getInstagramId())
+                    .isactive(influencer.getIsActive())
                     .token(influencer.getToken())
+                    .followers(formatFollowers(getFollowersFromInstagramApi(influencer.getToken(), influencer.getInstagramId())))
+                    .rating(formatRating(averageRating))
+                    .totalreview(formatFollowers(totalReviews))
+                    .minprice(formatPrice(String.valueOf(minPrice)))
+                    .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
                     .build();
 
             response.add(influencerFilterResponseDto);
+
+
+//            InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
+//                    .id(influencer.getUser().getId())
+//                    .name(influencer.getUser().getName())
+//                    .email(influencer.getUser().getEmail())
+//                    .location(influencer.getUser().getLocation().getLabel())
+//                    .phone(influencer.getUser().getPhone())
+//                    .gender(influencer.getGender().getLabel())
+//                    .dob(influencer.getDob().toString())
+//                    .feedsPrice(feedsPrice)
+//                    .reelsPrice(reelsPrice)
+//                    .storyPrice(storyPrice)
+//                    .category(categoryDto)
+//                    .userType(influencer.getUser().getUserType())
+//                    .instagramId(influencer.getInstagramId())
+//                    .isActive(influencer.getIsActive())
+//                    .token(influencer.getToken())
+//                    .build();
+//
+//            response.add(influencerFilterResponseDto);
         }
 
         return response;
@@ -764,6 +888,13 @@ public class InfluencerService {
 //        return null;
 //    }
 
+
+    public String capitalize(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        return input.substring(0, 1).toUpperCase() + input.substring(1).toLowerCase();
+    }
 
 
     public List<InfluencerFilterResponseDto> sortInfluencer(List<Integer> sort, InfluencerFilterRequestDto influencerFilterRequestDto) {
@@ -843,15 +974,27 @@ public class InfluencerService {
         for (Influencer influencer: influencers){
             System.out.println("influencers: " + influencer.getUser().getName());
 
+            Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+            Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
+
+
+            if (averageRating == null) {
+                averageRating = 0.0; // Default jika tidak ada review
+            }
+
+            if (totalReviews == null) {
+                totalReviews = 0; // Default jika tidak ada review
+            }
+
             List<Category> categories = influencer.getCategories();
             List<Map<String,Object>> categoryDto = new ArrayList<>();
 
-            for (Category category: categories){
-                Map<String,Object> newMap = new HashMap<>();
-                newMap.put("id", category.getId());
-                newMap.put("label", category.getLabel());
-                categoryDto.add(newMap);
-            }
+//            for (Category category: categories){
+//                Map<String,Object> newMap = new HashMap<>();
+//                newMap.put("id", category.getId());
+//                newMap.put("label", category.getLabel());
+//                categoryDto.add(newMap);
+//            }
 
 //            List<Map<String,Object>> categoryDtos = categories.stream().map(
 //                    item -> {
@@ -877,32 +1020,63 @@ public class InfluencerService {
                 }
             }
 
+            // Cari harga termurah
+            int minPrice = Integer.MAX_VALUE; // Nilai awal sebagai infinity
+
+            if (!feedsPrice.isEmpty()) {
+                minPrice = Math.min(minPrice, Integer.parseInt(feedsPrice));
+            }
+            if (!reelsPrice.isEmpty()) {
+                minPrice = Math.min(minPrice, Integer.parseInt(reelsPrice));
+            }
+            if (!storyPrice.isEmpty()) {
+                minPrice = Math.min(minPrice, Integer.parseInt(storyPrice));
+            }
+
+// Validasi jika tidak ada harga yang ditemukan
+            if (minPrice == Integer.MAX_VALUE) {
+                minPrice = 0; // Tidak ada harga yang ditemukan
+            }
+
+            System.out.println("Harga termurah: " + minPrice);
+
             for (Category category: categories){
+                System.out.println("ini di bagian category");
+//                System.out.println("category: " + category);
                 Map<String,Object> newMap = new HashMap<>();
                 newMap.put("id", category.getId());
                 newMap.put("label", category.getLabel());
                 categoryDto.add(newMap);
             }
 
+            System.out.println("ini lagi mau build response nya");
+
             //      Build responsenya
             InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
                     .id(influencer.getUser().getId())
                     .name(influencer.getUser().getName())
                     .email(influencer.getUser().getEmail())
-                    .location(influencer.getUser().getLocation().getLabel())
+                    .location(capitalize(influencer.getUser().getLocation().getLabel()))
                     .phone(influencer.getUser().getPhone())
                     .gender(influencer.getGender().getLabel())
                     .dob(influencer.getDob().toString())
-                    .feedsPrice(feedsPrice)
-                    .reelsPrice(reelsPrice)
-                    .storyPrice(storyPrice)
+                    .feedsprice(formatPrice(feedsPrice))
+                    .reelsprice(formatPrice(reelsPrice))
+                    .storyprice(formatPrice(storyPrice))
                     .category(categoryDto)
-                    .userType(influencer.getUser().getUserType())
-                    .instagramId(influencer.getInstagramId())
-                    .isActive(influencer.getIsActive())
+                    .usertype(influencer.getUser().getUserType())
+                    .instagramid(influencer.getInstagramId())
+                    .isactive(influencer.getIsActive())
                     .token(influencer.getToken())
+                    .followers(formatFollowers(getFollowersFromInstagramApi(influencer.getToken(), influencer.getInstagramId())))
+                    .rating(formatRating(averageRating))
+                    .minprice(formatPrice(String.valueOf(minPrice)))
+                    .totalreview(formatFollowers(totalReviews))
+//                    .minprice(formatPrice(String.valueOf(minPrice)))
+                    .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
                     .build();
 
+            System.out.println("ini udah selesai build response");
             response.add(influencerFilterResponseDto);
         }
 
