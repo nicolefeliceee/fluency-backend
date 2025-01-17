@@ -20,12 +20,17 @@ public class InfluencerFilterResponseDto {
     private String phone;
     private String gender;
     private String dob;
-    private String feedsPrice;
-    private String reelsPrice;
-    private String storyPrice;
+    private String feedsprice;
+    private String reelsprice;
+    private String storyprice;
     private List<?> category;
-    private String userType;
-    private String instagramId;
-    private Boolean isActive;
+    private String usertype;
+    private String instagramid;
+    private Boolean isactive;
     private String token;
+    private String followers;
+    private Double rating;
+    private String totalreview;
+    private String minprice;
+    private String profilepicture;
 }
