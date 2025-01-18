@@ -33,4 +33,5 @@ public class InfluencerFilterResponseDto {
     private String totalreview;
     private String minprice;
     private String profilepicture;
+    private Boolean issaved;
 }
