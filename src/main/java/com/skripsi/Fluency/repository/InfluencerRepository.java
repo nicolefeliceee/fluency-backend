@@ -29,4 +29,6 @@ public interface InfluencerRepository extends JpaRepository<Influencer, Integer>
 
     @Query("SELECT COUNT(r) FROM Review r WHERE r.influencer.id = :influencerId")
     Integer findTotalReviewsByInfluencerId(@Param("influencerId") Long influencerId);
+
+    Influencer findByUser(User user);
 }

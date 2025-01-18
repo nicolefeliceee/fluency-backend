@@ -215,7 +215,7 @@ public class UserService {
                     .email(requestDto.getEmail())
                     .phone(requestDto.getPhone())
                     .location(location)
-                    .userType("brand")
+                    .userType("influencer")
                     .build();
 
             User savedUser = userRepository.save(newUser);

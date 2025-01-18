@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,6 +28,9 @@ public class ProjectService {
     public StatusRepository statusRepository;
 
     @Autowired
+    public UserRepository userRepository;
+
+    @Autowired
     public BrandRepository brandRepository;
 
     @Autowired
@@ -34,31 +39,42 @@ public class ProjectService {
     @Autowired
     public MediaTypeRepository mediaTypeRepository;
 
-    public ResponseEntity<?> getProject(String statusId) {
+    public ResponseEntity<?> getProject(String statusId, String userId) {
         List<ProjectHeader> entities = new ArrayList<>();
         if(statusId == null) {
             entities = projectHeaderRepository.findAll();
 
         } else {
             Status status =  statusRepository.findById(Integer.valueOf(statusId)).orElse(null);
-            entities = projectHeaderRepository.findAllByStatus(status);
+            User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+            Brand brand;
+            Influencer influencer;
+            if(user.getUserType().equalsIgnoreCase("brand")) {
+                brand = brandRepository.findByUser(user);
+                entities = projectHeaderRepository.findAllByStatusAndBrand(status, brand);
+            } else if(user.getUserType().equalsIgnoreCase(("influencer"))) {
+                influencer = influencerRepository.findByUser(user);
+                entities = projectHeaderRepository.findAllByStatusAndInfluencer(status, influencer);
+            }
         }
 
         List<ProjectHeaderDto> responseDto = entities.stream().map(
                 item -> ProjectHeaderDto.builder()
+                        .id(item.getId().toString())
                         .title(item.getTitle())
                         .description(item.getDescription())
                         .mention(item.getMention())
                         .hashtag(item.getHashtag())
                         .caption(item.getCaption())
                         .brandId(item.getBrand().getId().toString())
-                        .influencerId(item.getInfluencer().getId().toString())
+                        .influencerId(item.getInfluencer() == null ? "" : item.getInfluencer().getId().toString())
                         .statusId(item.getStatus().getId().toString())
                         .projectDetails(
                                 item.getProjectDetails().stream().map(
                                         itemDetail -> ProjectDetailDto.builder()
                                                 .mediatypeId(itemDetail.getMediaType().getId().toString())
-                                                .deadlineDateTime(itemDetail.getDateTimeDeadline())
+                                                .deadlineDate(itemDetail.getDateDeadline() == null ? "" : itemDetail.getDateDeadline().toString())
+                                                .deadlineTime(itemDetail.getTimeDeadline() == null ? "" : itemDetail.getTimeDeadline().toString())
                                                 .note(itemDetail.getNote())
                                                 .build()
                                 ).collect(Collectors.toList())
@@ -74,8 +90,13 @@ public class ProjectService {
     @Transactional
     public ResponseEntity<?> createProject(ProjectHeaderDto request) {
 
-        Brand brand = brandRepository.findById(Integer.valueOf(request.getBrandId())).orElse(null);
-        Influencer influencer = influencerRepository.findById(Integer.valueOf(request.getInfluencerId())).orElse(null);
+        User user = userRepository.findById(Integer.valueOf(request.getUserId())).orElse(null);
+
+        Brand brand = brandRepository.findById(user.getBrand().getId()).orElse(null);
+        Influencer influencer = null;
+        if(request.getInfluencerId() != null && !request.getInfluencerId().isBlank()) {
+            influencer = influencerRepository.findById(Integer.valueOf(request.getInfluencerId())).orElse(null);
+        }
         Status status =  statusRepository.findById(Integer.valueOf(request.getStatusId())).orElse(null);
 
         ProjectHeader entity = ProjectHeader.builder()
@@ -94,11 +115,17 @@ public class ProjectService {
         List<ProjectDetail> details = request.getProjectDetails().stream().map(
                 item -> {
                     MediaType mediaType = mediaTypeRepository.findById(Integer.valueOf(item.getMediatypeId())).orElse(null);
+
+                    Double nominal = item.getNominal() == null? 0 : Double.parseDouble(item.getNominal());
+                    LocalDate dateDeadline = LocalDate.parse(item.getDeadlineDate());
+                    LocalTime timeDeadline = LocalTime.parse(item.getDeadlineTime());
+
                     return ProjectDetail.builder()
                             .mediaType(mediaType)
-                            .nominal(Double.valueOf(item.getNominal()))
+                            .nominal(nominal)
                             .link(item.getLink())
-                            .dateTimeDeadline(item.getDeadlineDateTime())
+                            .dateDeadline(dateDeadline)
+                            .timeDeadline(timeDeadline)
                             .note(item.getNote())
                             .projectHeader(savedProjectHeader)
                             .build();
@@ -107,7 +134,7 @@ public class ProjectService {
 
         List<ProjectDetail> savedDetails = projectDetailRepository.saveAll(details);
 
-        return ResponseEntity.ok(savedDetails);
+        return ResponseEntity.ok(request);
     }
 
 }

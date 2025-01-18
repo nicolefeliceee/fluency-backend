@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Entity
@@ -33,7 +35,9 @@ public class ProjectDetail {
     private MediaType mediaType;
 
     @Column
-    private LocalDateTime dateTimeDeadline;
+    private LocalDate dateDeadline;
+    @Column
+    private LocalTime timeDeadline;
 
     @Column(length = 255)
     private String note;

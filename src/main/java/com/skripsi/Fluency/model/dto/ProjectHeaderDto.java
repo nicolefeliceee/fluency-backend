@@ -8,6 +8,8 @@ import java.util.List;
 @Data
 @Builder
 public class ProjectHeaderDto {
+    private String id;
+    private String userId;
     private String title;
     private String description;
     private String caption;
