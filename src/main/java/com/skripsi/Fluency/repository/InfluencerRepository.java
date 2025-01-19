@@ -44,4 +44,6 @@ public interface InfluencerRepository extends JpaRepository<Influencer, Integer>
             "FROM Brand b JOIN b.influencers i " +
             "WHERE b.id = :brandId AND i.id = :influencerId")
     boolean isInfluencerSaved(@Param("brandId") Integer brandId, @Param("influencerId") Integer influencerId);
+
+    Influencer findByUser(User user);
 }

@@ -16,15 +16,17 @@ public class ProjectController {
     public ProjectService projectService;
 
 
-    @GetMapping
-    public ResponseEntity<?> getProject(@RequestParam(name = "status", required = false) String status) {
+    @GetMapping("{user_id}")
+    public ResponseEntity<?> getProject(@PathVariable(name = "user_id") String userId,
+                                        @RequestParam(name = "status", required = false) String status) {
 
-        return projectService.getProject(status);
+        return projectService.getProject(status, userId);
 
     }
 
     @PostMapping
     public ResponseEntity<?> createProject(@RequestBody ProjectHeaderDto request) {
+        System.out.println(request);
         return projectService.createProject(request);
     }
 }

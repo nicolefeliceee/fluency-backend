@@ -10,7 +10,8 @@ import java.time.LocalDateTime;
 public class ProjectDetailDto {
     private String mediatypeId;
     private String note;
-    private LocalDateTime deadlineDateTime;
+    private String deadlineTime;
+    private String deadlineDate;
     private String nominal;
     private String link;
 }
