@@ -30,5 +30,20 @@ public interface InfluencerRepository extends JpaRepository<Influencer, Integer>
     @Query("SELECT COUNT(r) FROM Review r WHERE r.influencer.id = :influencerId")
     Integer findTotalReviewsByInfluencerId(@Param("influencerId") Long influencerId);
 
+    // Query untuk mendapatkan influencer berdasarkan jumlah status ID 3 dan 4 terbanyak
+    @Query("SELECT i, COUNT(p) AS statusCount " +
+            "FROM Influencer i " +
+            "JOIN i.projectHeaders p " +
+            "JOIN p.status s " +
+            "WHERE s.id IN (3, 4) " +
+            "GROUP BY i " +
+            "ORDER BY statusCount DESC")
+    List<Influencer> findTopInfluencers();
+
+    @Query("SELECT CASE WHEN COUNT(b) > 0 THEN TRUE ELSE FALSE END " +
+            "FROM Brand b JOIN b.influencers i " +
+            "WHERE b.id = :brandId AND i.id = :influencerId")
+    boolean isInfluencerSaved(@Param("brandId") Integer brandId, @Param("influencerId") Integer influencerId);
+
     Influencer findByUser(User user);
 }
