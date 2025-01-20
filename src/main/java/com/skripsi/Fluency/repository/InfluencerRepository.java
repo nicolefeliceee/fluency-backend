@@ -47,7 +47,7 @@ public interface InfluencerRepository extends JpaRepository<Influencer, Integer>
 
     Influencer findByUser(User user);
 
-    @Query("SELECT b.influencers FROM Brand b WHERE b.id = :brandId")
-    List<Influencer> findSavedInfluencersByBrandId(@Param("brandId") Integer brandId);
+//    @Query("SELECT b.influencers FROM Brand b WHERE b.id = :brandId")
+//    List<Influencer> findSavedInfluencersByBrandId(@Param("brandId") Integer brandId);
 
 }

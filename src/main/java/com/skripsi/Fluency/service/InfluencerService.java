@@ -707,6 +707,28 @@ public class InfluencerService {
         return Double.valueOf(decimalFormat.format(rating));
     }
 
+    public List<Influencer> filterInfluencersByCategory(List<Influencer> influencers, Integer categoryChosen) {
+        List<Influencer> filteredInfluencers = new ArrayList<>();
+        System.out.println("ini masuk di filterinfluencersbycategory");
+        System.out.println("catChosen: " + categoryChosen);
+
+        for (Influencer influencer : influencers) {
+            System.out.println("infId: "+ influencer.getId());
+            if (influencer.getCategories() != null) {
+                for (Category category : influencer.getCategories()) {
+                    System.out.println("category id: " + category.getId());
+                    if (category.getId().equals(categoryChosen)) {
+                        System.out.println("influencer ke " + influencer.getId() + " di add");
+                        filteredInfluencers.add(influencer);
+                        break; // Jika sudah cocok, hentikan loop kategori untuk influencer ini
+                    }
+                }
+            }
+        }
+
+        return filteredInfluencers;
+    }
+
     public List<InfluencerFilterResponseDto> filterInfluencer(InfluencerFilterRequestDto influencerFilterRequestDto, Integer brandId) {
         System.out.println(influencerFilterRequestDto);
 
@@ -755,13 +777,29 @@ public class InfluencerService {
         boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
                 || influencerFilterRequestDto.getGenderAudience().isEmpty();
 
-        List<Influencer> influencers = new ArrayList<>();
-        influencers = influencers3;
+        List<Influencer> influencers4 = new ArrayList<>();
+        influencers4 = influencers3;
 //        Untuk filter by audience gender
         if (!isAudienceGenderEmpty){
             System.out.println("masuk filter by gender aud");
-            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+            influencers4 = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
         }
+
+//        Section ini untuk bagian tab category
+        List<Influencer> influencers = new ArrayList<>();
+        if (!influencerFilterRequestDto.getCategoryChosen().isEmpty()){
+            Integer categoryChosen = influencerFilterRequestDto.getCategoryChosen().get(0);
+            System.out.println("INI MASUK KE TAB CATEGORY");
+            if(categoryChosen == 0){
+                influencers = influencers4;
+            }
+            else{
+                influencers = filterInfluencersByCategory(influencers4, categoryChosen);
+            }
+        }else {
+            influencers = influencers4;
+        }
+
 
         List<InfluencerFilterResponseDto> response = new ArrayList<>();
 //        return influencerRepository.findAll(spec);
@@ -842,23 +880,49 @@ public class InfluencerService {
         boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
                 || influencerFilterRequestDto.getGenderAudience().isEmpty();
 
-        List<Influencer> influencers = new ArrayList<>();
-        influencers = influencers3;
+        List<Influencer> influencers4 = new ArrayList<>();
+        influencers4 = influencers3;
 //        Untuk filter by audience gender
         if (!isAudienceGenderEmpty){
             System.out.println("masuk filter by gender aud");
-            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+            influencers4 = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
         }
 
+//        Section ini untuk bagian tab category
+        List<Influencer> influencers = new ArrayList<>();
+        if (!influencerFilterRequestDto.getCategoryChosen().isEmpty()){
+            Integer categoryChosen = influencerFilterRequestDto.getCategoryChosen().get(0);
+            System.out.println("INI MASUK KE TAB CATEGORY");
+            if(categoryChosen == 0){
+                influencers = influencers4;
+            }
+            else{
+                influencers = filterInfluencersByCategory(influencers4, categoryChosen);
+            }
+        }else {
+            influencers = influencers4;
+        }
 //        ini untuk sort
         // Sort berdasarkan parameter
-        if (sort.get(0) == 1) {
+        if ( sort.isEmpty() || sort.get(0) == 1 ) {
             System.out.println("INI MASUK KE SORT POPULAR");
             influencers.sort(Comparator.comparing(influencer -> influencer.getProjectHeaders().size(), Comparator.reverseOrder()));
         } else if (sort.get(0) == 3) { // Sort by rating
-            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
+            influencers.sort(Comparator.comparing(
+                    influencer -> {
+                        // Panggil repository untuk mendapatkan average rating
+                        Double avgRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+                        return avgRating == null ? 0.0 : avgRating; // Default nilai 0.0 jika null
+                    }, Comparator.reverseOrder()));
+//            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
         } else if (sort.get(0) == 2) { // Sort by price
-            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+//            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+            influencers.sort(Comparator.comparing(
+                    influencer -> influencer.getInfluencerMediaTypes().stream()
+                            .mapToDouble(mediaType -> mediaType.getPrice() != null ? mediaType.getPrice() : Double.MAX_VALUE)
+                            .min()
+                            .orElse(Double.MAX_VALUE)
+            ));
         }
 
 //      Mapping response
@@ -998,23 +1062,20 @@ public class InfluencerService {
         return filterRequestDto;
     }
 
-    public List<InfluencerFilterResponseDto> filterInfluencersByCategoryId(Integer categoryId, List<InfluencerFilterResponseDto> influencers){
-        // Filter influencer berdasarkan kategori
-        return influencers.stream()
-                .filter(influencer -> influencer.getCategory() != null // Validasi null untuk category
-                        && influencer.getCategory().stream()
-                        .anyMatch(category -> {
-                            if (category instanceof Map<?, ?> categoryMap) { // Casting ke Map
-                                Object id = categoryMap.get("id");
-                                return id != null && id.equals(categoryId); // Bandingkan ID
-                            }
-                            return false;
-                        }))
-                .toList();
-    }
-
-
-
+//    public List<InfluencerFilterResponseDto> filterInfluencersByCategoryId(Integer categoryId, List<InfluencerFilterResponseDto> influencers){
+//        // Filter influencer berdasarkan kategori
+//        return influencers.stream()
+//                .filter(influencer -> influencer.getCategory() != null // Validasi null untuk category
+//                        && influencer.getCategory().stream()
+//                        .anyMatch(category -> {
+//                            if (category instanceof Map<?, ?> categoryMap) { // Casting ke Map
+//                                Object id = categoryMap.get("id");
+//                                return id != null && id.equals(categoryId); // Bandingkan ID
+//                            }
+//                            return false;
+//                        }))
+//                .toList();
+//    }
 
     public InfluencerFilterResponseDto buildResponse(Influencer influencer, Boolean isSaved){
 
@@ -1220,13 +1281,37 @@ public class InfluencerService {
         boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
                 || influencerFilterRequestDto.getGenderAudience().isEmpty();
 
-        List<Influencer> influencers = new ArrayList<>();
-        influencers = influencers3;
+//        List<Influencer> influencers = new ArrayList<>();
+//        influencers = influencers3;
+////        Untuk filter by audience gender
+//        if (!isAudienceGenderEmpty){
+//            System.out.println("masuk filter by gender aud");
+//            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+//        }
+
+        List<Influencer> influencers4 = new ArrayList<>();
+        influencers4 = influencers3;
 //        Untuk filter by audience gender
         if (!isAudienceGenderEmpty){
             System.out.println("masuk filter by gender aud");
-            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+            influencers4 = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
         }
+
+//        Section ini untuk bagian tab category
+        List<Influencer> influencers = new ArrayList<>();
+        if (!influencerFilterRequestDto.getCategoryChosen().isEmpty()){
+            Integer categoryChosen = influencerFilterRequestDto.getCategoryChosen().get(0);
+            System.out.println("INI MASUK KE TAB CATEGORY");
+            if(categoryChosen == 0){
+                influencers = influencers4;
+            }
+            else{
+                influencers = filterInfluencersByCategory(influencers4, categoryChosen);
+            }
+        }else {
+            influencers = influencers4;
+        }
+
 
         List<InfluencerFilterResponseDto> response = new ArrayList<>();
 //        return influencerRepository.findAll(spec);
@@ -1303,23 +1388,68 @@ public class InfluencerService {
         boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
                 || influencerFilterRequestDto.getGenderAudience().isEmpty();
 
-        List<Influencer> influencers = new ArrayList<>();
-        influencers = influencers3;
+//        List<Influencer> influencers = new ArrayList<>();
+//        influencers = influencers3;
+////        Untuk filter by audience gender
+//        if (!isAudienceGenderEmpty){
+//            System.out.println("masuk filter by gender aud");
+//            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+//        }
+
+        List<Influencer> influencers4 = new ArrayList<>();
+        influencers4 = influencers3;
 //        Untuk filter by audience gender
         if (!isAudienceGenderEmpty){
             System.out.println("masuk filter by gender aud");
-            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+            influencers4 = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
         }
+
+//        Section ini untuk bagian tab category
+        List<Influencer> influencers = new ArrayList<>();
+        if (!influencerFilterRequestDto.getCategoryChosen().isEmpty()){
+            Integer categoryChosen = influencerFilterRequestDto.getCategoryChosen().get(0);
+            System.out.println("INI MASUK KE TAB CATEGORY");
+            if(categoryChosen == 0){
+                influencers = influencers4;
+            }
+            else{
+                influencers = filterInfluencersByCategory(influencers4, categoryChosen);
+            }
+        }else {
+            influencers = influencers4;
+        }
+
 
 //        ini untuk sort
         // Sort berdasarkan parameter
-        if (sort.get(0) == 1) {
+//        if (sort.isEmpty() || sort.get(0) == 1 ) {
+//            System.out.println("INI MASUK KE SORT POPULAR");
+//            influencers.sort(Comparator.comparing(influencer -> influencer.getProjectHeaders().size(), Comparator.reverseOrder()));
+//        } else if (sort.get(0) == 3) { // Sort by rating
+//            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
+//        } else if (sort.get(0) == 2) { // Sort by price
+//            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+//        }
+        // Sort berdasarkan parameter
+        if ( sort.isEmpty() || sort.get(0) == 1 ) {
             System.out.println("INI MASUK KE SORT POPULAR");
             influencers.sort(Comparator.comparing(influencer -> influencer.getProjectHeaders().size(), Comparator.reverseOrder()));
         } else if (sort.get(0) == 3) { // Sort by rating
-            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
+            influencers.sort(Comparator.comparing(
+                    influencer -> {
+                        // Panggil repository untuk mendapatkan average rating
+                        Double avgRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+                        return avgRating == null ? 0.0 : avgRating; // Default nilai 0.0 jika null
+                    }, Comparator.reverseOrder()));
+//            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
         } else if (sort.get(0) == 2) { // Sort by price
-            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+//            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+            influencers.sort(Comparator.comparing(
+                    influencer -> influencer.getInfluencerMediaTypes().stream()
+                            .mapToDouble(mediaType -> mediaType.getPrice() != null ? mediaType.getPrice() : Double.MAX_VALUE)
+                            .min()
+                            .orElse(Double.MAX_VALUE)
+            ));
         }
 
 //      Mapping response
