@@ -51,10 +51,10 @@ public class ProjectService {
             Influencer influencer;
             if(user.getUserType().equalsIgnoreCase("brand")) {
                 brand = brandRepository.findByUser(user);
-                entities = projectHeaderRepository.findAllByStatusAndBrand(status, brand);
+                entities = projectHeaderRepository.findAllByStatusAndBrandOrderByIdDesc(status, brand);
             } else if(user.getUserType().equalsIgnoreCase(("influencer"))) {
                 influencer = influencerRepository.findByUser(user);
-                entities = projectHeaderRepository.findAllByStatusAndInfluencer(status, influencer);
+                entities = projectHeaderRepository.findAllByStatusAndInfluencerOrderByIdDesc(status, influencer);
             }
         }
 
@@ -73,8 +73,8 @@ public class ProjectService {
                                 item.getProjectDetails().stream().map(
                                         itemDetail -> ProjectDetailDto.builder()
                                                 .mediatypeId(itemDetail.getMediaType().getId().toString())
-                                                .deadlineDate(itemDetail.getDateDeadline() == null ? "" : itemDetail.getDateDeadline().toString())
-                                                .deadlineTime(itemDetail.getTimeDeadline() == null ? "" : itemDetail.getTimeDeadline().toString())
+                                                .deadlineDate(itemDetail.getDeadlineDate() == null ? "" : itemDetail.getDeadlineDate().toString())
+                                                .deadlineTime(itemDetail.getDeadlineTime() == null ? "" : itemDetail.getDeadlineTime().toString())
                                                 .note(itemDetail.getNote())
                                                 .build()
                                 ).collect(Collectors.toList())
@@ -124,8 +124,8 @@ public class ProjectService {
                             .mediaType(mediaType)
                             .nominal(nominal)
                             .link(item.getLink())
-                            .dateDeadline(dateDeadline)
-                            .timeDeadline(timeDeadline)
+                            .deadlineDate(dateDeadline)
+                            .deadlineTime(timeDeadline)
                             .note(item.getNote())
                             .projectHeader(savedProjectHeader)
                             .build();
@@ -135,6 +135,60 @@ public class ProjectService {
         List<ProjectDetail> savedDetails = projectDetailRepository.saveAll(details);
 
         return ResponseEntity.ok(request);
+    }
+
+    @Transactional
+    public ResponseEntity<?> editProject(ProjectHeaderDto requestDto) {
+        ProjectHeader existing = projectHeaderRepository.findById(Integer.valueOf(requestDto.getId())).orElse(null);
+
+        if(existing == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Influencer influencer = null;
+        if(requestDto.getInfluencerId() != null && !requestDto.getInfluencerId().equalsIgnoreCase("")) {
+            influencer = influencerRepository.findById(Integer.valueOf(requestDto.getInfluencerId())).orElse(null);
+        }
+
+        existing.setTitle(requestDto.getTitle());
+        existing.setDescription(requestDto.getDescription());
+        existing.setCaption(requestDto.getCaption());
+        existing.setHashtag(requestDto.getHashtag());
+        existing.setMention(requestDto.getMention());
+        existing.setInfluencer(influencer);
+
+        projectDetailRepository.deleteAll(existing.getProjectDetails());
+
+        List<ProjectDetail> newDetails = requestDto.getProjectDetails().stream().map(
+                item -> {
+                    MediaType mediaType = mediaTypeRepository.findById(Integer.valueOf(item.getMediatypeId())).orElse(null);
+
+                    Double nominal = item.getNominal() == null || item.getNominal().equalsIgnoreCase("")? 0 : Double.parseDouble(item.getNominal());
+
+
+                    LocalDate dateDeadline = null;
+                    LocalTime timeDeadline = null;
+                    if(item.getDeadlineDate() != null && !item.getDeadlineDate().equalsIgnoreCase("")) {
+                        dateDeadline = LocalDate.parse(item.getDeadlineDate());
+                    }
+                    if(item.getDeadlineTime() != null && !item.getDeadlineTime().equalsIgnoreCase("")) {
+                        timeDeadline = LocalTime.parse(item.getDeadlineTime());
+                    }
+
+                    return ProjectDetail.builder()
+                            .mediaType(mediaType)
+                            .nominal(nominal)
+                            .link(item.getLink())
+                            .deadlineDate(dateDeadline)
+                            .deadlineTime(timeDeadline)
+                            .note(item.getNote())
+                            .projectHeader(existing)
+                            .build();
+                }
+        ).toList();
+        List<ProjectDetail> savedDetails = projectDetailRepository.saveAll(newDetails);
+
+        return ResponseEntity.ok(requestDto);
     }
 
 }

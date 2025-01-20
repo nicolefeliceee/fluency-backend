@@ -35,9 +35,9 @@ public class ProjectDetail {
     private MediaType mediaType;
 
     @Column
-    private LocalDate dateDeadline;
+    private LocalDate deadlineDate;
     @Column
-    private LocalTime timeDeadline;
+    private LocalTime deadlineTime;
 
     @Column(length = 255)
     private String note;

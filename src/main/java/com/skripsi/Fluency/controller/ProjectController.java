@@ -29,4 +29,10 @@ public class ProjectController {
         System.out.println(request);
         return projectService.createProject(request);
     }
+
+    @PutMapping
+    public ResponseEntity<?> editProject(@RequestBody ProjectHeaderDto request) {
+        System.out.println(request);
+        return projectService.editProject(request);
+    }
 }

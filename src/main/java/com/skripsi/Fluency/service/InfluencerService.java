@@ -30,6 +30,20 @@ import static org.springframework.util.StringUtils.capitalize;
 @Service
 public class InfluencerService {
 
+    public ResponseEntity<?> getInfluencer(String id) {
+
+//        User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+        Influencer influencer = this.influencerRepository.findById(Integer.valueOf(id)).orElse(null);
+
+        if(influencer == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, null);
+        return ResponseEntity.ok(influencerFilterResponseDto);
+    }
+
 //    ini parse range untuk age
     private Range<Integer> parseRange(String value) {
         value = value.toLowerCase(); // Ubah ke lowercase untuk konsistensi
@@ -65,7 +79,6 @@ public class InfluencerService {
         }
         throw new IllegalArgumentException("Invalid range format: " + value);
     }
-
     @Autowired
     public InfluencerRepository influencerRepository;
 
@@ -74,7 +87,6 @@ public class InfluencerService {
 
     @Autowired
     public BrandRepository brandRepository;
-
 
     private Predicate createAgePredicate(CriteriaBuilder criteriaBuilder, Root<Influencer> root, Integer lowerAge, Integer upperAge) {
         LocalDate today = LocalDate.now();
@@ -1052,6 +1064,7 @@ public class InfluencerService {
         // Bangun InfluencerFilterResponseDto untuk setiap influencer
         InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
                 .id(influencer.getUser().getId())
+                .influencerId(influencer.getId())
                 .name(influencer.getUser().getName())
                 .email(influencer.getUser().getEmail())
                 .location(capitalize(influencer.getUser().getLocation().getLabel()))

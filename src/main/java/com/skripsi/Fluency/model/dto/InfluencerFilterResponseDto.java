@@ -14,6 +14,7 @@ import java.util.List;
 public class InfluencerFilterResponseDto {
 
     private Integer id;
+    private Integer influencerId;
     private String name;
     private String email;
     private String location;

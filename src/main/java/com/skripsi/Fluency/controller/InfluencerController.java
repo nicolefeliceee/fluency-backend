@@ -133,6 +133,9 @@ public class InfluencerController {
         }
     }
 
-
+        @GetMapping("{influencer-id}")
+        public ResponseEntity<?> getInfluencer(@PathVariable(name = "influencer-id") String id) {
+            return this.influencerService.getInfluencer(id);
+        }
 
 }
