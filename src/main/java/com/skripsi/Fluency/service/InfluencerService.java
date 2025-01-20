@@ -998,10 +998,25 @@ public class InfluencerService {
         return filterRequestDto;
     }
 
+    public List<InfluencerFilterResponseDto> filterInfluencersByCategoryId(Integer categoryId, List<InfluencerFilterResponseDto> influencers){
+        // Filter influencer berdasarkan kategori
+        return influencers.stream()
+                .filter(influencer -> influencer.getCategory() != null // Validasi null untuk category
+                        && influencer.getCategory().stream()
+                        .anyMatch(category -> {
+                            if (category instanceof Map<?, ?> categoryMap) { // Casting ke Map
+                                Object id = categoryMap.get("id");
+                                return id != null && id.equals(categoryId); // Bandingkan ID
+                            }
+                            return false;
+                        }))
+                .toList();
+    }
 
 
 
-    public  InfluencerFilterResponseDto buildResponse(Influencer influencer, Boolean isSaved){
+
+    public InfluencerFilterResponseDto buildResponse(Influencer influencer, Boolean isSaved){
 
         Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
         Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
@@ -1157,5 +1172,181 @@ public class InfluencerService {
         return influencerRepository.isInfluencerSaved(brandId, influencerId);
     }
 
+    public List<InfluencerFilterResponseDto> filterInfluencerSaved(InfluencerFilterRequestDto influencerFilterRequestDto, Integer brandId) {
+        System.out.println(influencerFilterRequestDto);
+
+        boolean hasFilter = hasAnyFilter(influencerFilterRequestDto);
+        List<Influencer> influencers1 = new ArrayList<>();
+
+        if(hasFilter){
+            // Buat Predicate menggunakan toPredicate
+            Specification<Influencer> spec = (root, query, criteriaBuilder) -> {
+                return toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto);
+            };
+
+            // Ambil influencer berdasarkan predikat yang telah dibuat
+            influencers1 = influencerRepository.findAll(spec);
+
+            System.out.println("spec: " + spec);
+        } else{
+            influencers1 = influencerRepository.findAll();
+        }
+
+        System.out.println("foll: " + influencerFilterRequestDto.getFollowers());
+        System.out.println("age aud: " + influencerFilterRequestDto.getAgeAudience());
+
+        boolean isFollowersEmpty = influencerFilterRequestDto.getFollowers() == null
+                || influencerFilterRequestDto.getFollowers().isEmpty();
+
+        List<Influencer> influencers2 = new ArrayList<>();
+        influencers2 = influencers1;
+//        Untuk filter by followers
+        if (!isFollowersEmpty){
+            System.out.println("masuk filter by foll");
+            influencers2 = filterInfluencersByFollowers(influencers1, influencerFilterRequestDto.getFollowers());
+        }
+
+        boolean isAudienceAgeEmpty = influencerFilterRequestDto.getAgeAudience() == null
+                || influencerFilterRequestDto.getAgeAudience().isEmpty();
+
+        List<Influencer> influencers3 = new ArrayList<>();
+        influencers3 = influencers2;
+//        Untuk filter by audience age
+        if (!isAudienceAgeEmpty){
+            System.out.println("masuk filter by age aud");
+            influencers3 = filterByAudienceAge(influencers2, influencerFilterRequestDto.getAgeAudience());
+        }
+
+        boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
+                || influencerFilterRequestDto.getGenderAudience().isEmpty();
+
+        List<Influencer> influencers = new ArrayList<>();
+        influencers = influencers3;
+//        Untuk filter by audience gender
+        if (!isAudienceGenderEmpty){
+            System.out.println("masuk filter by gender aud");
+            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+        }
+
+        List<InfluencerFilterResponseDto> response = new ArrayList<>();
+//        return influencerRepository.findAll(spec);
+        for (Influencer influencer: influencers){
+            System.out.println("influencers: " + influencer.getUser().getName());
+
+            User userBrand = userRepository.findById(brandId).orElse(null);
+            Brand brand = userBrand.getBrand();
+
+            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            System.out.println("INI LAGI LIAT IS SAVED DI FILTER INFLUENCER");
+            System.out.println("boolean: " + isSaved);
+            System.out.println("brandId: " + Integer.valueOf(brandId));
+            System.out.println("influencer: " + influencer.getId());
+
+            if(isSaved){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
+
+        }
+
+        return response;
+    }
+
+    public List<InfluencerFilterResponseDto> sortInfluencerSaved(List<Integer> sort, InfluencerFilterRequestDto influencerFilterRequestDto, Integer brandId) {
+        System.out.println("influencerFilterRequestDto" + influencerFilterRequestDto);
+        System.out.println("sort" + sort);
+
+        boolean hasFilter = hasAnyFilter(influencerFilterRequestDto);
+        List<Influencer> influencers1 = new ArrayList<>();
+
+        if(hasFilter){
+            // Buat Predicate menggunakan toPredicate
+            Specification<Influencer> spec = (root, query, criteriaBuilder) -> {
+                return toPredicate(root, query, criteriaBuilder, influencerFilterRequestDto);
+            };
+
+            // Ambil influencer berdasarkan predikat yang telah dibuat
+            influencers1 = influencerRepository.findAll(spec);
+
+            System.out.println("spec: " + spec);
+        } else{
+            influencers1 = influencerRepository.findAll();
+        }
+
+        System.out.println("foll: " + influencerFilterRequestDto.getFollowers());
+        System.out.println("age aud: " + influencerFilterRequestDto.getAgeAudience());
+
+        boolean isFollowersEmpty = influencerFilterRequestDto.getFollowers() == null
+                || influencerFilterRequestDto.getFollowers().isEmpty();
+
+        List<Influencer> influencers2 = new ArrayList<>();
+        influencers2 = influencers1;
+//        Untuk filter by followers
+        if (!isFollowersEmpty){
+            System.out.println("masuk filter by foll");
+            influencers2 = filterInfluencersByFollowers(influencers1, influencerFilterRequestDto.getFollowers());
+        }
+
+        boolean isAudienceAgeEmpty = influencerFilterRequestDto.getAgeAudience() == null
+                || influencerFilterRequestDto.getAgeAudience().isEmpty();
+
+        List<Influencer> influencers3 = new ArrayList<>();
+        influencers3 = influencers2;
+//        Untuk filter by audience age
+        if (!isAudienceAgeEmpty){
+            System.out.println("masuk filter by age aud");
+            influencers3 = filterByAudienceAge(influencers2, influencerFilterRequestDto.getAgeAudience());
+        }
+
+        boolean isAudienceGenderEmpty = influencerFilterRequestDto.getGenderAudience() == null
+                || influencerFilterRequestDto.getGenderAudience().isEmpty();
+
+        List<Influencer> influencers = new ArrayList<>();
+        influencers = influencers3;
+//        Untuk filter by audience gender
+        if (!isAudienceGenderEmpty){
+            System.out.println("masuk filter by gender aud");
+            influencers = filterByGenderAudience(influencers3, influencerFilterRequestDto.getGenderAudience());
+        }
+
+//        ini untuk sort
+        // Sort berdasarkan parameter
+        if (sort.get(0) == 1) {
+            System.out.println("INI MASUK KE SORT POPULAR");
+            influencers.sort(Comparator.comparing(influencer -> influencer.getProjectHeaders().size(), Comparator.reverseOrder()));
+        } else if (sort.get(0) == 3) { // Sort by rating
+            influencers = influencerRepository.findAllOrderByAverageRatingDesc();
+        } else if (sort.get(0) == 2) { // Sort by price
+            influencers = influencerRepository.findAllOrderByLowestPriceAsc();
+        }
+
+//      Mapping response
+        List<InfluencerFilterResponseDto> response = new ArrayList<>();
+//        return influencerRepository.findAll(spec);
+        for (Influencer influencer: influencers){
+            System.out.println("influencers: " + influencer.getUser().getName());
+
+
+            User userBrand = userRepository.findById(brandId).orElse(null);
+            Brand brand = userBrand.getBrand();
+
+            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(brandId), influencer.getId());
+            System.out.println("INI LAGI LIAT IS SAVED DI SORT INFLUENCER");
+            System.out.println("boolean: " + isSaved);
+            System.out.println("brandId: " + Integer.valueOf(brandId));
+            System.out.println("influencer: " + influencer.getId());
+
+            if(isSaved){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
+        }
+        return response;
+    }
 
 }
