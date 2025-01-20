@@ -58,6 +58,44 @@ public class InfluencerController {
         }
     }
 
+    @PostMapping("filter/saved/{user-id}")
+    public ResponseEntity<?> filterInfluencerSaved(@RequestBody InfluencerFilterRequestDto influencerFilterRequestDto, @PathVariable(name = "user-id") Integer brandId) {
+        try {
+            System.out.println("ini masuk influencer controller");
+            List<InfluencerFilterResponseDto> response = influencerService.filterInfluencerSaved(influencerFilterRequestDto, brandId);
+
+            return ResponseEntity.ok(response);
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("sort/saved/{user-id}")
+    public ResponseEntity<?> sortInfluencerSaved(@RequestBody SortRequestDto sortRequestDto, @PathVariable(name = "user-id") Integer brandId) {
+        try {
+            System.out.println("ini masuk influencer sort controller");
+            System.out.println("sortRequestDto" + sortRequestDto);
+            InfluencerFilterRequestDto dto = new InfluencerFilterRequestDto();
+            dto.setFollowers(sortRequestDto.getFollowers2());
+            dto.setMedia(sortRequestDto.getMedia2());
+            dto.setGender(sortRequestDto.getGender2());
+            dto.setAge(sortRequestDto.getAge2());
+            dto.setPrice(sortRequestDto.getPrice2());
+            dto.setRating(sortRequestDto.getRating2());
+            dto.setLocation(sortRequestDto.getLocation2());
+            dto.setGenderAudience(sortRequestDto.getGenderAudience2());
+            dto.setAgeAudience(sortRequestDto.getAgeAudience2());
+
+
+            List<InfluencerFilterResponseDto> sortedInfluencers = influencerService.sortInfluencerSaved(sortRequestDto.getSort(), dto, brandId);
+            return ResponseEntity.ok(sortedInfluencers);
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
 
     @GetMapping("top-influencer/{user-id}")
     public ResponseEntity<?> getTopInfluencer(@PathVariable(name = "user-id") String userId) {
@@ -133,9 +171,31 @@ public class InfluencerController {
         }
     }
 
-        @GetMapping("{influencer-id}")
-        public ResponseEntity<?> getInfluencer(@PathVariable(name = "influencer-id") String id) {
-            return this.influencerService.getInfluencer(id);
+    @PostMapping("category/{user-id}")
+    public ResponseEntity<?> filterInfluencersByCategoryId(@PathVariable(name = "user-id") Integer brandUserId, @RequestParam Integer status, @RequestBody List<InfluencerFilterResponseDto> influencers) {
+        try {
+            System.out.println("ini masuk controller category influencer");
+            System.out.println("INI INFLUENCER NYA: " + influencers);
+            System.out.println("brandUserId: " + brandUserId);
+            System.out.println("categoryId: " + status);
+
+            // Panggil service untuk filter influencer berdasarkan categoryId
+            List<InfluencerFilterResponseDto> filteredInfluencers = influencerService.filterInfluencersByCategoryId(status, influencers);
+
+            // Return hasil filtering
+            return ResponseEntity.ok(filteredInfluencers);
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build() ;
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error saving influencer: " + e.getMessage());
         }
+    }
+
+    @GetMapping("{influencer-id}")
+    public ResponseEntity<?> getInfluencer(@PathVariable(name = "influencer-id") String id) {
+        return this.influencerService.getInfluencer(id);
+    }
+
+
 
 }
