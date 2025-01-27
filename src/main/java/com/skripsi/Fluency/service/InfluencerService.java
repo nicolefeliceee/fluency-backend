@@ -1037,6 +1037,7 @@ public class InfluencerService {
         filterRequestDto.setLocation(filterRequestDto.getLocation() != null ? filterRequestDto.getLocation() : new ArrayList<>());
         filterRequestDto.setGenderAudience(filterRequestDto.getGenderAudience() != null ? filterRequestDto.getGenderAudience() : new ArrayList<>());
         filterRequestDto.setAgeAudience(filterRequestDto.getAgeAudience() != null ? filterRequestDto.getAgeAudience() : new ArrayList<>());
+        filterRequestDto.setCategoryChosen(filterRequestDto.getCategoryChosen() != null ? filterRequestDto.getCategoryChosen() : new ArrayList<>());
 
         // Mengisi location (id location dari brand)
         List<Integer> locationIds = brand.getLocations().stream()
