@@ -1,5 +1,6 @@
 package com.skripsi.Fluency.controller;
 
+import com.skripsi.Fluency.model.dto.ProjectDetailDto;
 import com.skripsi.Fluency.model.dto.ProjectHeaderDto;
 import com.skripsi.Fluency.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,13 +27,16 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<?> createProject(@RequestBody ProjectHeaderDto request) {
-        System.out.println(request);
         return projectService.createProject(request);
     }
 
     @PutMapping
     public ResponseEntity<?> editProject(@RequestBody ProjectHeaderDto request) {
-        System.out.println(request);
         return projectService.editProject(request);
+    }
+
+    @PutMapping("detail")
+    public ResponseEntity<?> editProjectDetail(@RequestBody ProjectDetailDto request) {
+        return projectService.editProjectDetail(request);
     }
 }

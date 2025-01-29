@@ -1,5 +1,7 @@
 package com.skripsi.Fluency;
 
+import com.midtrans.Config;
+import com.midtrans.ConfigBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
@@ -23,5 +25,14 @@ public class WebConfig {
     @Bean
     public RestTemplate restTemplate(){
         return new RestTemplate();
+    }
+
+    @Bean
+    public Config midtransClient() {
+        return new ConfigBuilder()
+                .setServerKey("${midtrans.server.key}")
+                .setClientKey("${midtrans.client.key}")
+                .setIsProduction(false) // Set to true for production
+                .build();
     }
 }
