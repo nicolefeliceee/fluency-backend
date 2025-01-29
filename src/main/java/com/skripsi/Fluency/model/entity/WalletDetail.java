@@ -30,7 +30,7 @@ public class WalletDetail {
     private TransactionType transactionType;
 
     @Column
-    private Double nominal;
+    private Integer nominal;
     private LocalDateTime dateTime;
 
 

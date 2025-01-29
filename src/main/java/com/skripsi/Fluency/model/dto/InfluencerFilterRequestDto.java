@@ -15,4 +15,5 @@ public class InfluencerFilterRequestDto {
     private List<Integer> location;
     private List<Integer> genderAudience;
     private List<String> ageAudience;
+    private List<Integer> categoryChosen;
 }

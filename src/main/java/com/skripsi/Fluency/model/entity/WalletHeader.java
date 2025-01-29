@@ -23,7 +23,7 @@ public class WalletHeader {
     private User user;
 
     @Column
-    private Double balance;
+    private Integer balance;
 
     //    tambahan
     @OneToMany(mappedBy = "walletHeader")

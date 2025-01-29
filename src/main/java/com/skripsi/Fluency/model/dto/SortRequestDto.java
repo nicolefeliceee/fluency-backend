@@ -23,4 +23,5 @@ public class SortRequestDto {
     private List<Integer> genderAudience2;
     private List<String> ageAudience2;
     private List<Integer> sort;
+    private List<Integer> categoryChosen2;
 }
