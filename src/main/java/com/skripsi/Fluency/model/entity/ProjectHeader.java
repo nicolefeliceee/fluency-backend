@@ -39,6 +39,7 @@ public class ProjectHeader {
     private String caption;
     private String mention;
     private String hashtag;
+    private String referenceNumber;
 
     //    tambahan
     @OneToMany(mappedBy = "projectHeader")

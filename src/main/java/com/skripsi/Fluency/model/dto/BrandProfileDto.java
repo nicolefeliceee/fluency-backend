@@ -23,4 +23,5 @@ public class BrandProfileDto {
     private List<?> targetGender;
     private List<?> targetLocation;
     private String userType;
+    private String profilePicture;
 }

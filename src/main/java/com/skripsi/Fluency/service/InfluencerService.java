@@ -79,6 +79,7 @@ public class InfluencerService {
         }
         throw new IllegalArgumentException("Invalid range format: " + value);
     }
+
     @Autowired
     public InfluencerRepository influencerRepository;
 

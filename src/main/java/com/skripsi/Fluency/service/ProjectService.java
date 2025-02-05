@@ -69,6 +69,7 @@ public class ProjectService {
                         .brandId(item.getBrand().getId().toString())
                         .influencerId(item.getInfluencer() == null ? "" : item.getInfluencer().getId().toString())
                         .statusId(item.getStatus().getId().toString())
+                        .referenceNumber(item.getReferenceNumber())
                         .projectDetails(
                                 item.getProjectDetails().stream().map(
                                         itemDetail -> ProjectDetailDto.builder()
@@ -76,6 +77,9 @@ public class ProjectService {
                                                 .deadlineDate(itemDetail.getDeadlineDate() == null ? "" : itemDetail.getDeadlineDate().toString())
                                                 .deadlineTime(itemDetail.getDeadlineTime() == null ? "" : itemDetail.getDeadlineTime().toString())
                                                 .note(itemDetail.getNote())
+                                                .link(itemDetail.getLink())
+                                                .statusId(itemDetail.getStatus().getId().toString())
+                                                .id(itemDetail.getId().toString())
                                                 .build()
                                 ).collect(Collectors.toList())
                         )
@@ -108,6 +112,7 @@ public class ProjectService {
                 .caption(request.getCaption())
                 .hashtag(request.getHashtag())
                 .mention(request.getMention())
+                .referenceNumber(request.getReferenceNumber())
                 .build();
 
         ProjectHeader savedProjectHeader = projectHeaderRepository.save(entity);
@@ -119,6 +124,7 @@ public class ProjectService {
                     Double nominal = item.getNominal() == null? 0 : Double.parseDouble(item.getNominal());
                     LocalDate dateDeadline = LocalDate.parse(item.getDeadlineDate());
                     LocalTime timeDeadline = LocalTime.parse(item.getDeadlineTime());
+//                    Status waitingStatus = statusRepository.findById(3).orElse(null);
 
                     return ProjectDetail.builder()
                             .mediaType(mediaType)
@@ -127,6 +133,7 @@ public class ProjectService {
                             .deadlineDate(dateDeadline)
                             .deadlineTime(timeDeadline)
                             .note(item.getNote())
+                            .status(status)
                             .projectHeader(savedProjectHeader)
                             .build();
                 }
@@ -150,45 +157,67 @@ public class ProjectService {
             influencer = influencerRepository.findById(Integer.valueOf(requestDto.getInfluencerId())).orElse(null);
         }
 
+        Status newStatus = statusRepository.findById(Integer.valueOf(requestDto.getStatusId())).orElse(null);
+
         existing.setTitle(requestDto.getTitle());
         existing.setDescription(requestDto.getDescription());
         existing.setCaption(requestDto.getCaption());
         existing.setHashtag(requestDto.getHashtag());
         existing.setMention(requestDto.getMention());
         existing.setInfluencer(influencer);
+        existing.setStatus(newStatus);
+        existing.setReferenceNumber(requestDto.getReferenceNumber());
+
+        projectHeaderRepository.save(existing);
 
         projectDetailRepository.deleteAll(existing.getProjectDetails());
 
         List<ProjectDetail> newDetails = requestDto.getProjectDetails().stream().map(
-                item -> {
-                    MediaType mediaType = mediaTypeRepository.findById(Integer.valueOf(item.getMediatypeId())).orElse(null);
+            item -> {
+                MediaType mediaType = mediaTypeRepository.findById(Integer.valueOf(item.getMediatypeId())).orElse(null);
 
-                    Double nominal = item.getNominal() == null || item.getNominal().equalsIgnoreCase("")? 0 : Double.parseDouble(item.getNominal());
+                Double nominal = item.getNominal() == null || item.getNominal().equalsIgnoreCase("")? 0 : Double.parseDouble(item.getNominal());
 
 
-                    LocalDate dateDeadline = null;
-                    LocalTime timeDeadline = null;
-                    if(item.getDeadlineDate() != null && !item.getDeadlineDate().equalsIgnoreCase("")) {
-                        dateDeadline = LocalDate.parse(item.getDeadlineDate());
-                    }
-                    if(item.getDeadlineTime() != null && !item.getDeadlineTime().equalsIgnoreCase("")) {
-                        timeDeadline = LocalTime.parse(item.getDeadlineTime());
-                    }
-
-                    return ProjectDetail.builder()
-                            .mediaType(mediaType)
-                            .nominal(nominal)
-                            .link(item.getLink())
-                            .deadlineDate(dateDeadline)
-                            .deadlineTime(timeDeadline)
-                            .note(item.getNote())
-                            .projectHeader(existing)
-                            .build();
+                LocalDate dateDeadline = null;
+                LocalTime timeDeadline = null;
+                if(item.getDeadlineDate() != null && !item.getDeadlineDate().equalsIgnoreCase("")) {
+                    dateDeadline = LocalDate.parse(item.getDeadlineDate());
                 }
+                if(item.getDeadlineTime() != null && !item.getDeadlineTime().equalsIgnoreCase("")) {
+                    timeDeadline = LocalTime.parse(item.getDeadlineTime());
+                }
+
+                return ProjectDetail.builder()
+                        .mediaType(mediaType)
+                        .nominal(nominal)
+                        .link(item.getLink())
+                        .deadlineDate(dateDeadline)
+                        .deadlineTime(timeDeadline)
+                        .note(item.getNote())
+                        .status(newStatus)
+                        .projectHeader(existing)
+                        .build();
+            }
         ).toList();
         List<ProjectDetail> savedDetails = projectDetailRepository.saveAll(newDetails);
 
         return ResponseEntity.ok(requestDto);
+    }
+
+
+    @Transactional
+    public ResponseEntity<?> editProjectDetail(ProjectDetailDto request) {
+        ProjectDetail existing = projectDetailRepository.findById(Integer.valueOf(request.getId())).orElse(null);
+
+        Status doneStatus = statusRepository.findById(5).orElse(null);
+
+        existing.setStatus(doneStatus);
+        existing.setLink(request.getLink());
+
+        projectDetailRepository.save(existing);
+
+        return ResponseEntity.ok(request);
     }
 
 }
