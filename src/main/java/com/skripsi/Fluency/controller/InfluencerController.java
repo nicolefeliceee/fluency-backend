@@ -198,6 +198,18 @@ public class InfluencerController {
         return this.influencerService.getInfluencer(id);
     }
 
+    @GetMapping("/search/{user-id}")
+    public ResponseEntity<?> searchInfluencers(@PathVariable(name = "user-id") Integer userId, @RequestParam String query) {
+        List<InfluencerFilterResponseDto> searchInfluencers = influencerService.searchInfluencers(query, String.valueOf(userId));
+        return ResponseEntity.ok(searchInfluencers);
+    }
+
+    @GetMapping("/saved/search/{user-id}")
+    public ResponseEntity<?> searchInfluencersSaved(@PathVariable(name = "user-id") Integer userId, @RequestParam String query) {
+        List<InfluencerFilterResponseDto> searchInfluencersSaved = influencerService.searchInfluencersSaved(query, String.valueOf(userId));
+        return ResponseEntity.ok(searchInfluencersSaved);
+    }
+
 
 
 }
