@@ -951,6 +951,78 @@ public class InfluencerService {
         return response;
     }
 
+    public List<InfluencerFilterResponseDto> searchInfluencers(String query, String userId) {
+        System.out.println("ini masuk ke service search inf");
+//        List<Influencer> influencers = influencerRepository.searchInfluencers(query.toLowerCase());
+        System.out.println("query: " + query);
+        System.out.println("userid: " + userId);
+        List<Influencer> influencers = influencerRepository.findByUser_NameContainingIgnoreCase(query);
+
+        // Buat list untuk menampung response
+        List<InfluencerFilterResponseDto> response = new ArrayList<>();
+
+        // Looping melalui influencer dan mapping ke DTO
+        for (Influencer influencer : influencers) {
+            System.out.println("influencers: " + influencer.getUser().getName());
+
+            User userBrand = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+            Brand brand = userBrand.getBrand();
+
+            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(userId), influencer.getId());
+            System.out.println("INI LAGI LIAT IS SAVED DI SEARCH INFLUENCER");
+            System.out.println("boolean: " + isSaved);
+            System.out.println("brandId: " + Integer.valueOf(userId));
+            System.out.println("influencer: " + influencer.getId());
+
+            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+
+            // Tambahkan influencer ke response list
+            response.add(influencerFilterResponseDto);
+        }
+
+        System.out.println("ini udah selesai build response");
+
+        return response;
+    }
+
+    public List<InfluencerFilterResponseDto> searchInfluencersSaved(String query, String userId) {
+        System.out.println("ini masuk ke service search inf");
+//        List<Influencer> influencers = influencerRepository.searchInfluencers(query.toLowerCase());
+        System.out.println("query: " + query);
+        System.out.println("userid: " + userId);
+        List<Influencer> influencers = influencerRepository.findByUser_NameContainingIgnoreCase(query);
+
+        // Buat list untuk menampung response
+        List<InfluencerFilterResponseDto> response = new ArrayList<>();
+
+        // Looping melalui influencer dan mapping ke DTO
+        for (Influencer influencer : influencers) {
+            System.out.println("influencers: " + influencer.getUser().getName());
+
+            User userBrand = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+            Brand brand = userBrand.getBrand();
+
+            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(userId), influencer.getId());
+            System.out.println("INI LAGI LIAT IS SAVED DI SEARCH INFLUENCER");
+            System.out.println("boolean: " + isSaved);
+            System.out.println("brandId: " + Integer.valueOf(userId));
+            System.out.println("influencer: " + influencer.getId());
+
+            if(isSaved){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
+        }
+
+        System.out.println("ini udah selesai build response");
+
+        return response;
+    }
+
 
 //    Dari sini masuk ke get influencer untuk page home
 
