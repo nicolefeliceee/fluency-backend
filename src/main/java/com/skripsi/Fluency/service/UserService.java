@@ -12,14 +12,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +40,8 @@ public class UserService {
 
     @Autowired
     public CategoryRepository categoryRepository;
+    @Autowired
+    public WalletHeaderRepository walletHeaderRepository;
 
     public LoginResponseDto login(LoginBrandRequestDto loginBrandRequestDto) {
         User user = userRepository.findByEmail(loginBrandRequestDto.getEmail());
@@ -123,9 +124,11 @@ public class UserService {
     }
 
     @Transactional
-    public ResponseEntity<?> signUpBrand(SignupBrandRequestDto requestDto) {
-
+    public ResponseEntity<?> signUpBrand(String requestString, MultipartFile profilePicture) throws IOException {
+        SignupBrandRequestDto requestDto;
         try {
+            ObjectMapper objectMapper = new ObjectMapper();
+             requestDto = objectMapper.readValue(requestString, SignupBrandRequestDto.class);
 
 //            check email exist
             User check = userRepository.findByEmail(requestDto.getEmail());
@@ -169,9 +172,23 @@ public class UserService {
                 targetLocation.add(found);
             }
 
+            byte[] profilePictureByte = null;
+            String profilePictureType = null;
+            String profilePictureName = null;
+            if(profilePicture != null && !profilePicture.isEmpty()) {
+                profilePictureByte = profilePicture.getBytes();
+                profilePictureType = profilePicture.getContentType();
+                profilePictureName = profilePicture.getName();
+            }
+
+//            System.out.println(Arrays.toString(profilePictureByte));
+//            System.out.println(Arrays.toString(profilePicture.getBytes()));
+
             Brand newBrand = Brand.builder()
                     .password(requestDto.getPassword())
-                    .profilePicture("")
+                    .profilePictureByte(profilePictureByte)
+                    .profilePictureType(profilePictureType)
+                    .profilePictureName(profilePictureName)
                     .user(savedUser)
                     .category(category)
                     .ages(targetAges)
@@ -184,6 +201,14 @@ public class UserService {
 //            sambungin user ke brand
             savedUser.setBrand(savedBrand);
             userRepository.save(savedUser);
+
+//            create wallet header
+            WalletHeader walletHeader = WalletHeader.builder()
+                    .balance(0)
+                    .user(savedUser)
+                    .build();
+
+            walletHeaderRepository.save(walletHeader);
 
         } catch(Exception ex) {
             System.out.println(ex.getMessage());
@@ -239,6 +264,14 @@ public class UserService {
             savedUser.setInfluencer(savedInfluencer);
             userRepository.save(savedUser);
 
+            //            create wallet header
+            WalletHeader walletHeader = WalletHeader.builder()
+                    .balance(0)
+                    .user(savedUser)
+                    .build();
+
+            walletHeaderRepository.save(walletHeader);
+
         } catch(Exception ex) {
             System.out.println(ex.getMessage());
         }
@@ -265,7 +298,7 @@ public class UserService {
             User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
 
             if(user == null) {
-                return null;
+                return ResponseEntity.notFound().build();
             }
 
             if(user.getUserType().equalsIgnoreCase("brand")) {
@@ -309,6 +342,9 @@ public class UserService {
                         .targetAgeRange(targetAge)
                         .targetGender(targetGender)
                         .targetLocation(targetLocation)
+                        .profilePictureByte(user.getBrand().getProfilePictureByte())
+                        .profilePictureType(user.getBrand().getProfilePictureType())
+                        .profilePictureName(user.getBrand().getProfilePictureName())
                         .build();
 
                 return ResponseEntity.ok(brandProfileDto);

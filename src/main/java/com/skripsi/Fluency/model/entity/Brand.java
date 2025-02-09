@@ -26,8 +26,11 @@ public class Brand {
     @Column(length = 55)
     private String password;
 
-    @Column(length = 255)
-    private String profilePicture;
+    @Column(length = 5000000)
+    private byte[] profilePictureByte;
+
+    private String profilePictureType;
+    private String profilePictureName;
 
     @ManyToOne
     @JoinColumn(name = "category_id")

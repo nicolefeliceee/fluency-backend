@@ -1,13 +1,19 @@
 package com.skripsi.Fluency.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skripsi.Fluency.model.dto.ProjectDetailDto;
 import com.skripsi.Fluency.model.dto.ProjectHeaderDto;
+import com.skripsi.Fluency.model.dto.VerifyLinkDto;
 import com.skripsi.Fluency.model.entity.*;
 import com.skripsi.Fluency.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -38,6 +44,12 @@ public class ProjectService {
 
     @Autowired
     public MediaTypeRepository mediaTypeRepository;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value(value = "${base.url}")
+    private String baseUrl;
 
     public ResponseEntity<?> getProject(String statusId, String userId) {
         List<ProjectHeader> entities = new ArrayList<>();
@@ -85,6 +97,34 @@ public class ProjectService {
                         )
                         .build()
         ).toList();
+
+
+        return ResponseEntity.ok(responseDto);
+
+    }
+
+    public ResponseEntity<?> getProjectById(String id) {
+        ProjectHeader entities = projectHeaderRepository.findById(Integer.valueOf(id)).orElse(null);
+
+        if(entities == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        ProjectHeaderDto responseDto = ProjectHeaderDto.builder()
+                .id(entities.getId().toString())
+                .title(entities.getTitle())
+                .description(entities.getDescription())
+                .mention(entities.getMention())
+                .hashtag(entities.getHashtag())
+                .caption(entities.getCaption())
+                .brandId(entities.getBrand().getId().toString())
+                .influencerId(entities.getInfluencer() == null ? "" : entities.getInfluencer().getId().toString())
+                .statusId(entities.getStatus().getId().toString())
+                .referenceNumber(entities.getReferenceNumber())
+                .projectDetails(
+                        getProjectDetailsByHeaderId(entities.getId())
+                )
+                .build();
 
 
         return ResponseEntity.ok(responseDto);
@@ -146,6 +186,8 @@ public class ProjectService {
 
     @Transactional
     public ResponseEntity<?> editProject(ProjectHeaderDto requestDto) {
+        System.out.println("========Edit project=======");
+        System.out.println(requestDto);
         ProjectHeader existing = projectHeaderRepository.findById(Integer.valueOf(requestDto.getId())).orElse(null);
 
         if(existing == null) {
@@ -170,14 +212,13 @@ public class ProjectService {
 
         projectHeaderRepository.save(existing);
 
-        projectDetailRepository.deleteAll(existing.getProjectDetails());
+//        projectDetailRepository.deleteAll(existing.getProjectDetails());
 
         List<ProjectDetail> newDetails = requestDto.getProjectDetails().stream().map(
             item -> {
                 MediaType mediaType = mediaTypeRepository.findById(Integer.valueOf(item.getMediatypeId())).orElse(null);
 
                 Double nominal = item.getNominal() == null || item.getNominal().equalsIgnoreCase("")? 0 : Double.parseDouble(item.getNominal());
-
 
                 LocalDate dateDeadline = null;
                 LocalTime timeDeadline = null;
@@ -188,19 +229,50 @@ public class ProjectService {
                     timeDeadline = LocalTime.parse(item.getDeadlineTime());
                 }
 
-                return ProjectDetail.builder()
-                        .mediaType(mediaType)
-                        .nominal(nominal)
-                        .link(item.getLink())
-                        .deadlineDate(dateDeadline)
-                        .deadlineTime(timeDeadline)
-                        .note(item.getNote())
-                        .status(newStatus)
-                        .projectHeader(existing)
-                        .build();
+//                if detail id exist -> update, else -> create
+
+                if(item.getId() == null || item.getId().equalsIgnoreCase("")) {
+                    return ProjectDetail.builder()
+                            .mediaType(mediaType)
+                            .nominal(nominal)
+                            .link(item.getLink())
+                            .deadlineDate(dateDeadline)
+                            .deadlineTime(timeDeadline)
+                            .instagramMediaId(item.getInstagramMediaId())
+                            .note(item.getNote())
+                            .status(newStatus)
+                            .projectHeader(existing)
+                            .build();
+                } else {
+                    return ProjectDetail.builder()
+                            .id(Integer.valueOf(item.getId()))
+                            .mediaType(mediaType)
+                            .nominal(nominal)
+                            .link(item.getLink())
+                            .deadlineDate(dateDeadline)
+                            .deadlineTime(timeDeadline)
+                            .instagramMediaId(item.getInstagramMediaId())
+                            .note(item.getNote())
+                            .status(newStatus)
+                            .projectHeader(existing)
+                            .build();
+                }
+
             }
         ).toList();
+        newDetails.stream().map(
+                item -> {
+                    System.out.print(item.getId());
+                    return item.getId();
+                }
+        );
         List<ProjectDetail> savedDetails = projectDetailRepository.saveAll(newDetails);
+        savedDetails.stream().map(
+                item -> {
+                    System.out.print(item.getId());
+                    return item.getId();
+                }
+        );
 
         return ResponseEntity.ok(requestDto);
     }
@@ -212,12 +284,153 @@ public class ProjectService {
 
         Status doneStatus = statusRepository.findById(5).orElse(null);
 
+        System.out.println("===========Edit project detail===========");
+        System.out.println(request);
         existing.setStatus(doneStatus);
         existing.setLink(request.getLink());
+        existing.setInstagramMediaId(request.getInstagramMediaId());
 
         projectDetailRepository.save(existing);
 
         return ResponseEntity.ok(request);
     }
+
+//    get all details by header id
+    public List<ProjectDetailDto> getProjectDetailsByHeaderId(Integer headerId) {
+        ProjectHeader header = projectHeaderRepository.findById(headerId).orElse(null);
+
+        List<ProjectDetail> entities = projectDetailRepository.findByProjectHeaderOrderByDeadlineDateAscDeadlineTimeAsc(header);
+
+        List<ProjectDetailDto> details = entities.stream().map(
+                entity -> {
+                    ProjectDetailDto newDetail = ProjectDetailDto.builder()
+                            .id(entity.getId().toString())
+                            .mediatypeId(entity.getMediaType().getId().toString())
+                            .note(entity.getNote())
+                            .deadlineDate(entity.getDeadlineDate().toString())
+                            .deadlineTime(entity.getDeadlineTime().toString())
+                            .nominal(entity.getNominal().toString())
+                            .link(entity.getLink())
+                            .statusId(entity.getStatus().getId().toString())
+                            .analyticsLastUpdated(entity.getAnalyticsLastUpdated())
+                            .analyticsPicture(entity.getAnalyticsPicture())
+                            .analyticsCaption(entity.getAnalyticsCaption())
+                            .analyticsLikes(entity.getAnalyticsLikes())
+                            .analyticsComments(entity.getAnalyticsComments())
+                            .analyticsSaved(entity.getAnalyticsSaved())
+                            .analyticsShared(entity.getAnalyticsShared())
+                            .analyticsAccountsEngaged(entity.getAnalyticsAccountsEngaged())
+                            .analyticsAccountsReached(entity.getAnalyticsAccountsReached())
+                            .sentimentPositive(entity.getSentimentPositive())
+                            .sentimentNegative(entity.getSentimentNegative())
+                            .sentimentNeutral(entity.getSentimentNeutral())
+                            .build();
+                    return newDetail;
+                }
+        ).collect(Collectors.toList());
+
+        return details;
+    }
+
+//    get single detail by Id
+    public ProjectDetailDto getProjectDetail(String detailId) {
+        ProjectDetail entity = projectDetailRepository.findById(Integer.valueOf(detailId)).orElse(null);
+
+        if(entity == null) {
+            return null;
+        }
+
+        String instagramMediaId = entity.getInstagramMediaId();
+
+
+
+        ProjectDetailDto responseDto = ProjectDetailDto.builder()
+                .id(detailId)
+                .mediatypeId(entity.getMediaType().getId().toString())
+                .note(entity.getNote())
+                .deadlineDate(entity.getDeadlineDate().toString())
+                .deadlineTime(entity.getDeadlineTime().toString())
+                .nominal(entity.getNominal().toString())
+                .link(entity.getLink())
+                .statusId(entity.getStatus().getId().toString())
+                .instagramMediaId(entity.getInstagramMediaId())
+                .analyticsLastUpdated(entity.getAnalyticsLastUpdated())
+                .analyticsPicture(entity.getAnalyticsPicture())
+                .analyticsCaption(entity.getAnalyticsCaption())
+                .analyticsLikes(entity.getAnalyticsLikes())
+                .analyticsComments(entity.getAnalyticsComments())
+                .analyticsSaved(entity.getAnalyticsSaved())
+                .analyticsShared(entity.getAnalyticsShared())
+                .analyticsAccountsEngaged(entity.getAnalyticsAccountsEngaged())
+                .analyticsAccountsReached(entity.getAnalyticsAccountsReached())
+                .sentimentPositive(entity.getSentimentPositive())
+                .sentimentNegative(entity.getSentimentNegative())
+                .sentimentNeutral(entity.getSentimentNeutral())
+                .build();
+
+
+        return responseDto;
+    }
+
+    public VerifyLinkDto findMediaidByLink(String influencerId, String requestLink) {
+        Influencer influencer = influencerRepository.findById(Integer.valueOf(influencerId)).orElse(null);
+
+        String trimmedLink = requestLink;
+        if(requestLink.endsWith("/")) {
+            trimmedLink = requestLink.substring(0, requestLink.length()-1);
+        }
+
+        try {
+            //            Hit URL API Instagram
+            UriComponentsBuilder getMediaUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + influencer.getInstagramId())
+                    .queryParam("fields", "media")
+                    .queryParam("access_token", influencer.getToken());
+
+            //            Ambil response
+            ResponseEntity<?> mediaResponse = restTemplate.getForEntity(getMediaUrl.toUriString(), String.class);
+
+            //            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(mediaResponse.getBody()));
+
+            //            Ambil data saja
+            JsonNode media = jsonNode.get("media");
+            JsonNode data = media.get("data");
+
+            for(var item: data) {
+// hit ig buat dapetin permalink dari masing2 media id
+                System.out.println(item.get("id").asText());
+                UriComponentsBuilder getPermalinkUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + item.get("id").asText())
+                        .queryParam("fields", "permalink")
+                        .queryParam("access_token", influencer.getToken());
+
+                //            Ambil response
+                ResponseEntity<?> permalinkResponse = restTemplate.getForEntity(getPermalinkUrl.toUriString(), String.class);
+                JsonNode permalinkJson = mapper.readTree(String.valueOf(permalinkResponse.getBody()));
+                System.out.println(permalinkResponse);
+
+                //            Ambil permalink
+                String permalink = permalinkJson.get("permalink").asText();
+
+                System.out.println(permalink);
+
+                if(requestLink.contains(trimmedLink)) {
+                    return VerifyLinkDto.builder()
+                            .mediaId(item.get("id").asText())
+                            .link(requestLink)
+                            .build();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+
+        return VerifyLinkDto.builder()
+                .mediaId("")
+                .link(requestLink)
+                .build();
+
+    }
+
 
 }

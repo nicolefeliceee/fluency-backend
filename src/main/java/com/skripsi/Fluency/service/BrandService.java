@@ -26,7 +26,9 @@ public class BrandService {
                 .phone(brand.getUser().getPhone())
                 .email(brand.getUser().getEmail())
                 .location(capitalize(brand.getUser().getLocation().getLabel()))
-                .profilePicture(brand.getProfilePicture())
+                .profilePictureByte(brand.getProfilePictureByte())
+                .profilePictureType(brand.getProfilePictureType())
+                .profilePictureName(brand.getProfilePictureName())
                 .category(brand.getCategory().getLabel())
                 .build();
 

@@ -16,4 +16,19 @@ public class ProjectDetailDto {
     private String nominal;
     private String link;
     private String statusId;
+
+//    for perfomance
+    private String instagramMediaId;
+    private LocalDateTime analyticsLastUpdated;
+    private String analyticsPicture;
+    private String analyticsCaption;
+    private Integer analyticsLikes;
+    private Integer analyticsComments;
+    private Integer analyticsSaved;
+    private Integer analyticsShared;
+    private Integer analyticsAccountsEngaged;
+    private Integer analyticsAccountsReached;
+    private Double sentimentPositive;
+    private Double sentimentNegative;
+    private Double sentimentNeutral;
 }

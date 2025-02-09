@@ -3,8 +3,10 @@ package com.skripsi.Fluency.controller;
 import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("user")
@@ -44,12 +46,16 @@ public class UserController {
     }
 
 
-    @PostMapping("brand/signup")
-    public ResponseEntity<?> signupBrand(@RequestBody SignupBrandRequestDto requestDto) {
+    @PostMapping(value = "brand/signup", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    public ResponseEntity<?> signupBrand(
+            @RequestPart("data") String requestDto,
+            @RequestPart(value = "profile_picture", required = false) MultipartFile profilePicture
+            ) {
         System.out.println(requestDto);
+        System.out.println(profilePicture);
 
         try {
-            ResponseEntity<?> response = userService.signUpBrand(requestDto);
+            ResponseEntity<?> response = userService.signUpBrand(requestDto, profilePicture);
 
             return response;
         } catch(Exception ex) {
@@ -75,7 +81,7 @@ public class UserController {
     public ResponseEntity<?>  getProfile(@PathVariable(name = "user-id") String userId) {
 
         try {
-            return ResponseEntity.ok(userService.getProfile(userId));
+            return userService.getProfile(userId);
         } catch(Exception ex) {
             return ResponseEntity.internalServerError().build() ;
         }

@@ -1,6 +1,7 @@
 package com.skripsi.Fluency.model.dto;
 
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class SignupBrandRequestDto {
@@ -15,4 +16,5 @@ public class SignupBrandRequestDto {
     private String[] targetGender;
     private String[] targetLocation;
     private String userType;
+    private MultipartFile profilePicture;
 }

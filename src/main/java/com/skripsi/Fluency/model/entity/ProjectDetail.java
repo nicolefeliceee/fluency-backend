@@ -50,6 +50,9 @@ public class ProjectDetail {
     private String paymentMethod;
 
     @Column
+    private String instagramMediaId;
+
+    @Column
     private LocalDateTime analyticsLastUpdated;
 
     @Column(length = 255)
