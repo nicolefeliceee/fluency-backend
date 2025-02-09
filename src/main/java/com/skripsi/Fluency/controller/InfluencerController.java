@@ -1,9 +1,6 @@
 package com.skripsi.Fluency.controller;
 
-import com.skripsi.Fluency.model.dto.InfluencerFilterRequestDto;
-import com.skripsi.Fluency.model.dto.InfluencerFilterResponseDto;
-import com.skripsi.Fluency.model.dto.SortFilterDto;
-import com.skripsi.Fluency.model.dto.SortRequestDto;
+import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.service.InfluencerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -211,6 +208,9 @@ public class InfluencerController {
         return ResponseEntity.ok(searchInfluencersSaved);
     }
 
-
-
+//    @GetMapping("/detail/{influencer-id}/{user-id}")
+//    public ResponseEntity<?> detailInfluencer(@PathVariable(name = "influencer-id") Integer influencerId, @PathVariable(name = "user-id") Integer userId) {
+//        InfluencerDetailResponseDto detailInfluencer = influencerService.detailInfluencer(influencerId, userId);
+//        return ResponseEntity.ok(detailInfluencer);
+//    }
 }
