@@ -45,9 +45,15 @@ public interface InfluencerRepository extends JpaRepository<Influencer, Integer>
             "WHERE b.id = :brandId AND i.id = :influencerId")
     boolean isInfluencerSaved(@Param("brandId") Integer brandId, @Param("influencerId") Integer influencerId);
 
+//    @Query("SELECT i FROM Influencer i WHERE LOWER(i.name) LIKE %:query% OR LOWER(i.location) LIKE %:query%")
+//    List<Influencer> searchInfluencers(@Param("query") String query);
+
+    List<Influencer> findByUser_NameContainingIgnoreCase(String keyword);
+
     Influencer findByUser(User user);
 
 //    @Query("SELECT b.influencers FROM Brand b WHERE b.id = :brandId")
 //    List<Influencer> findSavedInfluencersByBrandId(@Param("brandId") Integer brandId);
+
 
 }
