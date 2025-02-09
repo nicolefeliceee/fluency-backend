@@ -708,6 +708,12 @@ public class InfluencerService {
         return Double.valueOf(decimalFormat.format(rating));
     }
 
+    public static Double formatRatingDetail(double rating) {
+//        System.out.println("ini lagi di format rating");
+        DecimalFormat decimalFormat = new DecimalFormat("#.#");
+        return Double.valueOf(decimalFormat.format(rating));
+    }
+
     public List<Influencer> filterInfluencersByCategory(List<Influencer> influencers, Integer categoryChosen) {
         List<Influencer> filteredInfluencers = new ArrayList<>();
         System.out.println("ini masuk di filterinfluencersbycategory");
@@ -1551,6 +1557,87 @@ public class InfluencerService {
             }
         }
         return response;
+    }
+
+    public InfluencerDetailResponseDto detailInfluencer(Integer influencerId, Integer userId) {
+        Influencer influencer = influencerRepository.findById(influencerId).orElse(null);
+        System.out.println("influencer: " + influencer.getUser().getName());
+
+        User userBrand = userRepository.findById(userId).orElse(null);
+        Brand brand = userBrand.getBrand();
+
+        Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+
+
+        InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+
+        return null;
+    }
+
+    public InfluencerFilterResponseDto buildDetailResponse(Influencer influencer, Boolean isSaved){
+
+        Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+        Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
+
+
+        if (averageRating == null) {
+            averageRating = 0.0; // Default jika tidak ada review
+        }
+
+        if (totalReviews == null) {
+            totalReviews = 0; // Default jika tidak ada review
+        }
+
+        List<Category> categories = influencer.getCategories();
+        List<Map<String,Object>> categoryDto = new ArrayList<>();
+
+        String feedsPrice = "";
+        String reelsPrice = "";
+        String storyPrice = "";
+        List<InfluencerMediaType> mediaTypes = influencer.getInfluencerMediaTypes();
+        for(InfluencerMediaType mediaType: mediaTypes){
+            if(mediaType.getMediaType().getLabel().equalsIgnoreCase("feeds")){
+                feedsPrice = mediaType.getPrice().toString();
+            }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("reels")){
+                reelsPrice = mediaType.getPrice().toString();
+            }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("story")){
+                storyPrice = mediaType.getPrice().toString();
+            }
+        }
+
+        for (Category category: categories){
+            Map<String,Object> newMap = new HashMap<>();
+            newMap.put("id", category.getId());
+            newMap.put("label", category.getLabel());
+            categoryDto.add(newMap);
+        }
+
+        // Bangun InfluencerFilterResponseDto untuk setiap influencer
+        InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
+                .id(influencer.getUser().getId())
+                .influencerId(influencer.getId())
+                .name(influencer.getUser().getName())
+                .email(influencer.getUser().getEmail())
+                .location(capitalize(influencer.getUser().getLocation().getLabel()))
+                .phone(influencer.getUser().getPhone())
+                .gender(influencer.getGender().getLabel())
+                .dob(influencer.getDob().toString())
+                .feedsprice(formatPrice(feedsPrice)) // Pastikan feedsPrice sudah didefinisikan
+                .reelsprice(formatPrice(reelsPrice)) // Pastikan reelsPrice sudah didefinisikan
+                .storyprice(formatPrice(storyPrice)) // Pastikan storyPrice sudah didefinisikan
+                .category(categoryDto) // Pastikan categoryDto sudah didefinisikan
+                .usertype(influencer.getUser().getUserType())
+                .instagramid(influencer.getInstagramId())
+                .isactive(influencer.getIsActive())
+                .token(influencer.getToken())
+                .followers(formatFollowers(getFollowersFromInstagramApi(influencer.getToken(), influencer.getInstagramId())))
+                .rating(formatRatingDetail(averageRating)) // Pastikan averageRating sudah didefinisikan
+                .totalreview(formatFollowers(totalReviews)) // Pastikan totalReviews sudah didefinisikan
+                .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
+                .issaved(isSaved)
+                .build();
+
+        return influencerFilterResponseDto;
     }
 
 }
