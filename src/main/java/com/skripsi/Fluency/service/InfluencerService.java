@@ -4,9 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.model.entity.*;
-import com.skripsi.Fluency.repository.BrandRepository;
-import com.skripsi.Fluency.repository.InfluencerRepository;
-import com.skripsi.Fluency.repository.UserRepository;
+import com.skripsi.Fluency.repository.*;
 import jakarta.persistence.criteria.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,12 +17,17 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import java.time.LocalDate;
 
 import static org.springframework.util.StringUtils.capitalize;
+import org.springframework.web.client.HttpClientErrorException;
+
 
 
 @Service
@@ -88,6 +91,12 @@ public class InfluencerService {
 
     @Autowired
     public BrandRepository brandRepository;
+
+    @Autowired
+    public ReviewRepository reviewRepository;
+
+    @Autowired
+    public InfluencerMediaTypeRepository influencerMediaTypeRepository;
 
     private Predicate createAgePredicate(CriteriaBuilder criteriaBuilder, Root<Influencer> root, Integer lowerAge, Integer upperAge) {
         LocalDate today = LocalDate.now();
@@ -424,7 +433,8 @@ public class InfluencerService {
             JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
 
 //            Ambil data saja
-            String data = jsonNode.get("profile_picture_url").toString();
+//            String data = jsonNode.get("profile_picture_url").toString();
+            String data = jsonNode.get("profile_picture_url").asText();
 
             return data;
         }
@@ -433,7 +443,6 @@ public class InfluencerService {
             return null;
         }
     }
-
 
     // Filter influencer berdasarkan age range yang dipilih
     public List<Influencer> filterByAudienceAge(List<Influencer> influencers, List<String> selectedAgeRanges) {
@@ -1569,75 +1578,945 @@ public class InfluencerService {
         Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
 
 
-        InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
-
-        return null;
-    }
-
-    public InfluencerFilterResponseDto buildDetailResponse(Influencer influencer, Boolean isSaved){
-
-        Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
-        Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
-
-
-        if (averageRating == null) {
-            averageRating = 0.0; // Default jika tidak ada review
-        }
-
-        if (totalReviews == null) {
-            totalReviews = 0; // Default jika tidak ada review
-        }
-
-        List<Category> categories = influencer.getCategories();
-        List<Map<String,Object>> categoryDto = new ArrayList<>();
-
-        String feedsPrice = "";
-        String reelsPrice = "";
-        String storyPrice = "";
-        List<InfluencerMediaType> mediaTypes = influencer.getInfluencerMediaTypes();
-        for(InfluencerMediaType mediaType: mediaTypes){
-            if(mediaType.getMediaType().getLabel().equalsIgnoreCase("feeds")){
-                feedsPrice = mediaType.getPrice().toString();
-            }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("reels")){
-                reelsPrice = mediaType.getPrice().toString();
-            }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("story")){
-                storyPrice = mediaType.getPrice().toString();
-            }
-        }
-
-        for (Category category: categories){
-            Map<String,Object> newMap = new HashMap<>();
-            newMap.put("id", category.getId());
-            newMap.put("label", category.getLabel());
-            categoryDto.add(newMap);
-        }
-
-        // Bangun InfluencerFilterResponseDto untuk setiap influencer
-        InfluencerFilterResponseDto influencerFilterResponseDto = InfluencerFilterResponseDto.builder()
-                .id(influencer.getUser().getId())
-                .influencerId(influencer.getId())
-                .name(influencer.getUser().getName())
-                .email(influencer.getUser().getEmail())
-                .location(capitalize(influencer.getUser().getLocation().getLabel()))
-                .phone(influencer.getUser().getPhone())
-                .gender(influencer.getGender().getLabel())
-                .dob(influencer.getDob().toString())
-                .feedsprice(formatPrice(feedsPrice)) // Pastikan feedsPrice sudah didefinisikan
-                .reelsprice(formatPrice(reelsPrice)) // Pastikan reelsPrice sudah didefinisikan
-                .storyprice(formatPrice(storyPrice)) // Pastikan storyPrice sudah didefinisikan
-                .category(categoryDto) // Pastikan categoryDto sudah didefinisikan
-                .usertype(influencer.getUser().getUserType())
-                .instagramid(influencer.getInstagramId())
-                .isactive(influencer.getIsActive())
-                .token(influencer.getToken())
-                .followers(formatFollowers(getFollowersFromInstagramApi(influencer.getToken(), influencer.getInstagramId())))
-                .rating(formatRatingDetail(averageRating)) // Pastikan averageRating sudah didefinisikan
-                .totalreview(formatFollowers(totalReviews)) // Pastikan totalReviews sudah didefinisikan
-                .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
-                .issaved(isSaved)
-                .build();
+        InfluencerDetailResponseDto influencerFilterResponseDto = buildDetailResponse(influencer, isSaved);
 
         return influencerFilterResponseDto;
+    }
+
+    public StoryDetailDto fetchStoryDetails(String storyId, String token) {
+        try{
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + storyId + "/insights")
+                    .queryParam("metric", "shares,views")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            // Inisialisasi nilai default
+            int shareCount = 0, viewCount = 0;
+
+            // Cek apakah ada data
+            if (jsonNode.has("data") && jsonNode.get("data").isArray()) {
+                for (JsonNode dataNode : jsonNode.get("data")) {
+                    String metricName = dataNode.get("name").asText();
+                    int value = dataNode.get("values").get(0).get("value").asInt();
+
+                    // Cek tipe metrik dan assign ke variabel yang sesuai
+                    switch (metricName) {
+                        case "views":
+                            viewCount = value;
+                            break;
+                        case "shares":
+                            shareCount = value;
+                            break;
+                    }
+                }
+            }
+            System.out.println("view: " + viewCount);
+            System.out.println("share: " + shareCount);
+
+//            sekarang mau ambil media type dll
+            UriComponentsBuilder builder2 = UriComponentsBuilder.fromUriString(baseUrl + "/" + storyId)
+                    .queryParam("fields", "media_type,media_product_type,media_url,permalink,timestamp,thumbnail_url")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response2 = restTemplate.getForEntity(builder2.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper2 = new ObjectMapper();
+            JsonNode jsonNode2 = mapper2.readTree(String.valueOf(response2.getBody()));
+
+            String mediaType = jsonNode2.get("media_type").asText();
+            String mediaProductType = jsonNode2.get("media_product_type").asText();
+            String mediaUrl = jsonNode2.get("media_url").asText();
+            String permalink = jsonNode2.get("permalink").asText();
+            String timestamp = jsonNode2.get("timestamp").asText();
+
+            String thumbnailUrl = mediaUrl;
+            if (mediaType == "VIDEO"){
+                thumbnailUrl = jsonNode2.get("thumbnail_url").asText();
+            }
+
+            // Return DTO yang sudah diisi
+            return StoryDetailDto.builder()
+                    .id(storyId)
+                    .viewcount(viewCount)
+                    .sharecount(shareCount)
+                    .mediatype(mediaType)
+                    .mediaproducttype(mediaProductType)
+                    .mediaurl(mediaUrl)
+                    .permalink(permalink)
+                    .timestamp(timestamp)
+                    .thumbnailurl(thumbnailUrl)
+                    .build();
+        }
+        catch (HttpClientErrorException.BadRequest e){
+            try {
+                // Parsing response error dari API
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode errorNode = mapper.readTree(e.getResponseBodyAsString());
+
+                if (errorNode.has("error")) {
+                    JsonNode errorDetails = errorNode.get("error");
+                    int errorCode = errorDetails.get("code").asInt();
+                    String errorMessage = errorDetails.has("message") ? errorDetails.get("message").asText() : "";
+
+                    // Handle error khusus jika media diposting sebelum akun menjadi business account
+                    if (errorCode == 10 && errorMessage.contains("Not enough viewers for the media to show insights")) {
+                        System.out.println("⚠️ Skipping media " + storyId + " because it does not have enough viewers for insights.");
+                        return null;
+                    }
+                }
+            } catch (Exception parseError) {
+                System.out.println("❌ Error parsing error response: " + parseError.getMessage());
+            }
+
+            return null; // Return null jika terjadi error
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+
+        }
+    }
+
+    public MediaDetailDto fetchMediaDetails(String mediaId, String token){
+        try{
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + mediaId + "/insights")
+                    .queryParam("metric", "likes,shares,saved,comments")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            // Inisialisasi nilai default
+            int likeCount = 0, shareCount = 0, saveCount = 0, commentCount = 0;
+
+            // Cek apakah ada data
+            if (jsonNode.has("data") && jsonNode.get("data").isArray()) {
+                for (JsonNode dataNode : jsonNode.get("data")) {
+                    String metricName = dataNode.get("name").asText();
+                    int value = dataNode.get("values").get(0).get("value").asInt();
+
+                    // Cek tipe metrik dan assign ke variabel yang sesuai
+                    switch (metricName) {
+                        case "likes":
+                            likeCount = value;
+                            break;
+                        case "shares":
+                            shareCount = value;
+                            break;
+                        case "saved":
+                            saveCount = value;
+                            break;
+                        case "comments":
+                            commentCount = value;
+                            break;
+                    }
+                }
+            }
+//            System.out.println("likes: " + likeCount);
+//            System.out.println("share: " + shareCount);
+//            System.out.println("save: " + saveCount);
+//            System.out.println("comment: " + commentCount);
+
+
+//            sekarang mau ambil media type dll
+            UriComponentsBuilder builder2 = UriComponentsBuilder.fromUriString(baseUrl + "/" + mediaId)
+                    .queryParam("fields", "media_type,media_product_type,media_url,permalink,timestamp,thumbnail_url")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response2 = restTemplate.getForEntity(builder2.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper2 = new ObjectMapper();
+            JsonNode jsonNode2 = mapper2.readTree(String.valueOf(response2.getBody()));
+
+            String mediaType = jsonNode2.get("media_type").asText();
+            String mediaProductType = jsonNode2.get("media_product_type").asText();
+            String mediaUrl = jsonNode2.get("media_url").asText();
+            String permalink = jsonNode2.get("permalink").asText();
+            String timestamp = jsonNode2.get("timestamp").asText();
+
+            String thumbnailUrl = mediaUrl;
+            if (mediaProductType == "REELS"){
+                thumbnailUrl = jsonNode2.get("thumbnail_url").asText();
+            }
+
+            Integer engagement = likeCount + commentCount + shareCount + saveCount;
+
+//            System.out.println("start");
+//            System.out.println(mediaType);
+//            System.out.println(mediaProductType);
+//            System.out.println(mediaUrl);
+//            System.out.println(permalink);
+//            System.out.println(timestamp);
+//            System.out.println(engagement);
+
+            // Return DTO yang sudah diisi
+            return MediaDetailDto.builder()
+                    .id(mediaId)
+                    .likecount(likeCount)
+                    .commentcount(commentCount)
+                    .sharecount(shareCount)
+                    .savecount(saveCount)
+                    .mediatype(mediaType)
+                    .mediaproducttype(mediaProductType)
+                    .mediaurl(mediaUrl)
+                    .permalink(permalink)
+                    .timestamp(timestamp)
+                    .engagement(formatFollowers(engagement))
+                    .thumbnailurl(thumbnailUrl)
+                    .build();
+        }
+        catch (HttpClientErrorException.BadRequest e){
+            try {
+                // Parsing response error dari API
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode errorNode = mapper.readTree(e.getResponseBodyAsString());
+
+                if (errorNode.has("error")) {
+                    JsonNode errorDetails = errorNode.get("error");
+                    int errorCode = errorDetails.get("code").asInt();
+                    int errorSubcode = errorDetails.has("error_subcode") ? errorDetails.get("error_subcode").asInt() : 0;
+
+                    // Handle error khusus jika media diposting sebelum akun menjadi business account
+                    if (errorCode == 100 && errorSubcode == 2108006) {
+                        System.out.println("⚠️ Skipping media " + mediaId + " because it was posted before the account conversion to business.");
+                        return null; // Bisa juga return object kosong jika ingin tetap dikembalikan
+                    }
+                }
+            } catch (Exception parseError) {
+                System.out.println("❌ Error parsing error response: " + parseError.getMessage());
+            }
+
+            return null; // Return null jika terjadi error
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+
+        }
+    }
+
+    public static String formatDate(LocalDateTime dateTimeInput) {
+        // Input string
+        String dateTimeString = String.valueOf(dateTimeInput);
+
+        // Parsing string ke LocalDateTime
+        LocalDateTime dateTime = LocalDateTime.parse(dateTimeString);
+
+        // Format output
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy", Locale.ENGLISH);
+
+        // Format ke string yang diinginkan
+        String formattedDate = dateTime.format(formatter);
+
+        // Output hasil
+        System.out.println(formattedDate);
+        return formattedDate;
+    }
+
+    public static long getUnixTimestamp(int daysAgo) {
+        return LocalDate.now().minusDays(daysAgo)
+                .atStartOfDay()
+                .toEpochSecond(ZoneOffset.UTC);
+    }
+
+    public static long getUnixTimestampEoD(int daysAgo) {
+        return LocalDate.now().minusDays(daysAgo)
+                .atTime(23, 59, 59)
+                .toEpochSecond(ZoneOffset.UTC);
+    }
+
+    public GraphDto follGrowth(String igid, String token){
+        try {
+            long time = getUnixTimestamp(29);
+            System.out.println("unix timestamp 30 hari lalu: " + time);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "follower_count")
+                    .queryParam("period", "day")
+                    .queryParam("since", time)
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy");
+
+            List<String> labels = new ArrayList<>();
+            List<String> data = new ArrayList<>();
+
+            // Ambil data dari API
+            JsonNode dataArray = jsonNode.get("data");
+            if (dataArray != null && dataArray.isArray()) {
+                for (JsonNode dataNode : dataArray) {
+                    if (dataNode.has("values") && dataNode.get("values").isArray()) {
+
+
+                        for (JsonNode valueNode : dataNode.get("values")) {
+                            // Ambil nilai value
+                            String followerCount = valueNode.get("value").asText();
+
+                            // Ubah format tanggal
+                            String endTime = valueNode.get("end_time").asText().substring(0, 10);
+                            LocalDate date = LocalDate.parse(endTime);
+                            String formattedDate = date.format(formatter);
+
+                            labels.add(formattedDate);
+                            data.add(followerCount);
+                        }
+                    }
+                }
+            }
+            return GraphDto.builder()
+                    .labels(labels)
+                    .data(data)
+                    .build();
+        }catch (Exception e) {
+            e.printStackTrace();
+            return null;
+
+        }
+    }
+
+    public GraphDto reach (String igid, String token){
+        try {
+            long time = getUnixTimestamp(29);
+            System.out.println("unix timestamp 30 hari lalu: " + time);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "reach")
+                    .queryParam("period", "day")
+                    .queryParam("since", time)
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy");
+
+            List<String> labels = new ArrayList<>();
+            List<String> data = new ArrayList<>();
+
+            // Ambil data dari API
+            JsonNode dataArray = jsonNode.get("data");
+            if (dataArray != null && dataArray.isArray()) {
+                for (JsonNode dataNode : dataArray) {
+                    if (dataNode.has("values") && dataNode.get("values").isArray()) {
+                        for (JsonNode valueNode : dataNode.get("values")) {
+                            // Ambil nilai value
+                            String reachCount = valueNode.get("value").asText();
+
+                            // Ubah format tanggal
+                            String endTime = valueNode.get("end_time").asText().substring(0, 10);
+                            LocalDate date = LocalDate.parse(endTime);
+                            String formattedDate = date.format(formatter);
+
+                            labels.add(formattedDate);
+                            data.add(reachCount);
+                        }
+                    }
+                }
+            }
+
+            return GraphDto.builder()
+                    .labels(labels)
+                    .data(data)
+                    .build();
+
+        }catch (Exception e) {
+            e.printStackTrace();
+            return null;
+
+        }
+    }
+
+    public HashMap<String,Object> onlineFollowers (String igid, String token){
+        HashMap<String,Object> hashMap = new HashMap<>();
+        try {
+            long start = getUnixTimestamp(3);
+            long end = getUnixTimestampEoD(3);
+            System.out.println("unix timestamp 3 hari lalu: " + start + " " + end);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "online_followers")
+                    .queryParam("period", "lifetime")
+                    .queryParam("since", start)
+                    .queryParam("until", end)
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            List<String> labels = new ArrayList<>();
+            List<String> data = new ArrayList<>();
+            int maxFollowers = Integer.MIN_VALUE;
+            int minFollowers = Integer.MAX_VALUE;
+            String highestTime = "";
+            String lowestTime = "";
+
+            // Ambil data dari API
+            JsonNode dataArray = jsonNode.get("data");
+            if (dataArray != null && dataArray.isArray()) {
+                for (JsonNode dataNode : dataArray) {
+                    if (dataNode.has("values") && dataNode.get("values").isArray()) {
+                        for (JsonNode valueNode : dataNode.get("values")) {
+                            JsonNode valueObject = valueNode.get("value");
+                            if (valueObject != null && valueObject.isObject()) {
+                                for (int i = 0; i < 24; i++) {
+                                    int followerCount = valueObject.get(String.valueOf(i)).asInt();
+                                    int hourWIB = (i + 7) % 24; // Konversi ke WIB
+                                    String hourLabel = hourWIB + ":00";
+
+                                    labels.add(hourLabel);
+                                    data.add(String.valueOf(followerCount));
+
+                                    // Cari highest & lowest
+                                    if (followerCount > maxFollowers) {
+                                        maxFollowers = followerCount;
+                                        highestTime = hourLabel;
+                                    }
+                                    if (followerCount < minFollowers) {
+                                        minFollowers = followerCount;
+                                        lowestTime = hourLabel;
+                                    }
+//                                    labels.add(hourLabel);
+//                                    data.add(valueObject.get(String.valueOf(i)).asText());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            GraphDto graphDto = GraphDto.builder()
+                    .labels(labels)
+                    .data(data)
+                    .build();
+
+            hashMap.put("graph", graphDto);
+            hashMap.put("highest", highestTime);
+            hashMap.put("lowest", lowestTime);
+            return hashMap;
+        }catch (Exception e) {
+            e.printStackTrace();
+            return null;
+
+        }
+    }
+
+    public GraphDto cityAudience (String igid, String token){
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "follower_demographics")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("breakdown", "city")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            // Ambil data dari API
+            List<String> labels = new ArrayList<>();
+            List<String> data = new ArrayList<>();
+            JsonNode dataArray = jsonNode.get("data").get(0).get("total_value").get("breakdowns").get(0).get("results");
+            if (dataArray != null && dataArray.isArray()) {
+                List<JsonNode> sortedCities = new ArrayList<>();
+                for (JsonNode cityData : dataArray) {
+                    sortedCities.add(cityData);
+                }
+
+                // Urutkan berdasarkan value (followers) dari terbesar ke terkecil
+                sortedCities.sort((a, b) -> Integer.compare(b.get("value").asInt(), a.get("value").asInt()));
+
+                // Ambil 10 besar
+                for (int i = 0; i < Math.min(10, sortedCities.size()); i++) {
+                    JsonNode cityData = sortedCities.get(i);
+                    labels.add(cityData.get("dimension_values").get(0).asText());
+                    data.add(String.valueOf(cityData.get("value").asInt())); // Simpan dalam bentuk String
+                }
+            }
+            return GraphDto.builder()
+                    .labels(labels)
+                    .data(data)
+                    .build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public GraphDto ageAudience (String igid, String token){
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "follower_demographics")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("breakdown", "age")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            // Ambil data dari API
+            List<String> labels = new ArrayList<>();
+            List<String> data = new ArrayList<>();
+            JsonNode dataArray = jsonNode.get("data").get(0).get("total_value").get("breakdowns").get(0).get("results");
+            if (dataArray != null && dataArray.isArray()) {
+                for (JsonNode ageData : dataArray) {
+                    labels.add(ageData.get("dimension_values").get(0).asText());
+                    data.add(String.valueOf(ageData.get("value").asInt()));
+                }
+            }
+            return GraphDto.builder()
+                    .labels(labels)
+                    .data(data)
+                    .build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public GraphDto genderAudience (String igid, String token){
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
+                    .queryParam("metric", "follower_demographics")
+                    .queryParam("period", "lifetime")
+                    .queryParam("metric_type", "total_value")
+                    .queryParam("breakdown", "gender")
+                    .queryParam("access_token", token);
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+            // Ambil data dari API
+            List<String> labels = new ArrayList<>();
+            List<String> data = new ArrayList<>();
+            JsonNode dataArray = jsonNode.get("data").get(0).get("total_value").get("breakdowns").get(0).get("results");
+            if (dataArray != null && dataArray.isArray()) {
+                for (JsonNode genderData : dataArray) {
+                    labels.add(genderData.get("dimension_values").get(0).asText());
+                    data.add(String.valueOf(genderData.get("value").asInt()));
+                }
+            }
+            return GraphDto.builder()
+                    .labels(labels)
+                    .data(data)
+                    .build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public InfluencerDetailResponseDto buildDetailResponse(Influencer influencer, Boolean isSaved){
+        try{
+            Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+            Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
+
+
+            if (averageRating == null) {
+                averageRating = 0.0; // Default jika tidak ada review
+            }
+
+            if (totalReviews == null) {
+                totalReviews = 0; // Default jika tidak ada review
+            }
+
+            List<Category> categories = influencer.getCategories();
+            List<Map<String,Object>> categoryDto = new ArrayList<>();
+
+            String feedsPrice = "";
+            String reelsPrice = "";
+            String storyPrice = "";
+            List<InfluencerMediaType> mediaTypes = influencer.getInfluencerMediaTypes();
+            for(InfluencerMediaType mediaType: mediaTypes){
+                if(mediaType.getMediaType().getLabel().equalsIgnoreCase("feeds")){
+                    feedsPrice = mediaType.getPrice().toString();
+                }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("reels")){
+                    reelsPrice = mediaType.getPrice().toString();
+                }else if(mediaType.getMediaType().getLabel().equalsIgnoreCase("story")){
+                    storyPrice = mediaType.getPrice().toString();
+                }
+            }
+
+            for (Category category: categories){
+                Map<String,Object> newMap = new HashMap<>();
+                newMap.put("id", category.getId());
+                newMap.put("label", category.getLabel());
+                categoryDto.add(newMap);
+            }
+
+//        untuk get basic data dari ig
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + influencer.getInstagramId())
+                    .queryParam("fields", "followers_count,follows_count,media_count,username,biography,media,stories")
+                    .queryParam("access_token", influencer.getToken());
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+//            Ambil data saja
+            String dataFollowers = jsonNode.get("followers_count").asText();
+            String dataFollowing = jsonNode.get("follows_count").asText();
+            String dataTotalPost = jsonNode.get("media_count").asText();
+            String dataUsername = jsonNode.get("username").asText();
+            String dataBio = jsonNode.get("biography").asText();
+
+//            System.out.println("followers: " + dataFollowers);
+//            System.out.println("following: " + dataFollowing);
+//            System.out.println("total post: " + dataTotalPost);
+//            System.out.println("username: " + dataUsername);
+//            System.out.println("dataBio: " + dataBio);
+
+//            ini untuk story
+            List<StoryDetailDto> storyList = new ArrayList<>();
+            JsonNode storiesNode = jsonNode.get("stories"); // Pastikan stories ada
+            if (storiesNode != null && storiesNode.has("data") && storiesNode.get("data").isArray()) {
+                JsonNode storyData = storiesNode.get("data");
+
+                for (JsonNode storyNode : storyData) {
+                    String storyId = storyNode.get("id").asText();
+                    System.out.println("story id: " + storyId);
+
+                    StoryDetailDto storyDetail = fetchStoryDetails(storyId, influencer.getToken());
+                    if (storyDetail != null) {
+                        storyList.add(storyDetail);
+                    }
+                }
+
+                // Sorting berdasarkan timestamp terbaru
+                storyList.sort(Comparator.comparing(StoryDetailDto::getTimestamp).reversed());
+            } else {
+                System.out.println("⚠️ Tidak ada story yang tersedia.");
+            }
+
+
+            List<MediaDetailDto> mediaList = new ArrayList<>();
+            JsonNode mediaNode = jsonNode.get("media");
+            if (mediaNode != null && mediaNode.has("data") && mediaNode.get("data").isArray()) {
+                JsonNode mediaData = mediaNode.get("data");
+
+                for (JsonNode mediaItem : mediaData) {
+                    String mediaId = mediaItem.get("id").asText();
+                    System.out.println("media id: " + mediaId);
+
+                    MediaDetailDto mediaDetail = fetchMediaDetails(mediaId, influencer.getToken());
+                    if (mediaDetail != null) {
+                        mediaList.add(mediaDetail);
+                    }
+                }
+            } else {
+                System.out.println("⚠️ Tidak ada media yang tersedia.");
+            }
+
+            List<MediaDetailDto> feeds = new ArrayList<>();
+            List<MediaDetailDto> reels = new ArrayList<>();
+
+            // Pisahkan berdasarkan media_product_type
+            for (MediaDetailDto media : mediaList) {
+                if ("REELS".equalsIgnoreCase(media.getMediaproducttype())) {
+                    reels.add(media);
+                } else if ("FEED".equalsIgnoreCase(media.getMediaproducttype())) {
+                    feeds.add(media);
+                }
+            }
+
+            // Sorting berdasarkan engagement descending dengan parsing ke integer
+            Comparator<MediaDetailDto> comparator = (m1, m2) -> Integer.compare(
+                    Integer.parseInt(m2.getEngagement()),
+                    Integer.parseInt(m1.getEngagement())
+            );
+
+            // Terapkan sorting dan limit 8
+            feeds = feeds.stream().sorted(comparator).limit(8).collect(Collectors.toList());
+            reels = reels.stream().sorted(comparator).limit(8).collect(Collectors.toList());
+
+            // Hitung total like, shared, saved, dan comment
+            int totalLike = mediaList.stream().mapToInt(MediaDetailDto::getLikecount).sum();
+            int totalShared = mediaList.stream().mapToInt(MediaDetailDto::getSharecount).sum();
+            int totalSaved = mediaList.stream().mapToInt(MediaDetailDto::getSavecount).sum();
+            int totalComment = mediaList.stream().mapToInt(MediaDetailDto::getCommentcount).sum();
+
+            // Hitung rata-rata
+            int avgLike = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalLike / mediaList.size());
+            int avgShared = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalShared / mediaList.size());
+            int avgSaved = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalSaved / mediaList.size());
+            int avgComment = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalComment / mediaList.size());
+
+
+            Double totalInteraction = (double) (avgLike + avgComment + avgSaved + avgShared);
+            Integer dataFollowersInt = Integer.valueOf(dataFollowers);
+            Double engagement = (dataFollowersInt == 0) ? 0.0 : (totalInteraction / dataFollowersInt) * 100;
+
+//            mau hitung setiap ratingnya
+            List<Review> reviews = reviewRepository.findByInfluencerId(influencer.getId());
+
+            // Hitung total review
+            int totalReview = reviews.size();
+
+            // Buat map untuk menghitung jumlah setiap rating (1-5)
+            Map<Integer, Long> ratingCountMap = reviews.stream()
+                    .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
+
+            List<TotalRatingDto> totalRatingList = new ArrayList<>();
+
+            // Loop untuk rating 1 sampai 5
+            for (int i = 1; i <= 5; i++) {
+                long count = ratingCountMap.getOrDefault(i, 0L);
+                double percentage = totalReview == 0 ? 0 : (double) count / totalReview * 100;
+
+                totalRatingList.add(TotalRatingDto.builder()
+                        .rating(i)
+                        .totalreview((int) count)
+                        .percentage(formatRatingDetail(percentage))
+                        .build());
+            }
+
+//            ini mau build review dto
+            List<ReviewDto> reviewDtos = reviews.stream().map(review -> ReviewDto.builder()
+                    .profilepicturename(review.getBrand().getProfilePictureName()) // Sesuaikan dengan atribut di User
+                    .profilepicturebyte(review.getBrand().getProfilePictureByte())
+                    .profilepicturetype(review.getBrand().getProfilePictureType())
+                    .name(review.getBrand().getUser().getName()) // Sesuaikan dengan atribut di User
+                    .date(formatDate(review.getDateTime())) // Format sesuai kebutuhan
+                    .rating(review.getRating())
+                    .review(review.getReview()) // Pastikan ada field 'comment' di Review
+                    .build()).collect(Collectors.toList());
+
+
+//            sekarang mau bikin graph2 an
+            HashMap<String,Object> hashMap = onlineFollowers(influencer.getInstagramId(), influencer.getToken());
+            GraphDto graphDto = (GraphDto) hashMap.get("graph");
+            String lowestTime = (String) hashMap.get("lowest");
+            String highestTime = (String) hashMap.get("highest");
+
+            // Bangun InfluencerFilterResponseDto untuk setiap influencer
+            InfluencerDetailResponseDto influencerFilterResponseDto = InfluencerDetailResponseDto.builder()
+                    .id(influencer.getUser().getId())
+                    .influencerId(influencer.getId())
+                    .name(influencer.getUser().getName())
+                    .email(influencer.getUser().getEmail())
+                    .location(capitalize(influencer.getUser().getLocation().getLabel()))
+                    .phone(influencer.getUser().getPhone())
+                    .gender(influencer.getGender().getLabel())
+                    .dob(influencer.getDob().toString())
+                    .feedsprice(formatPrice(feedsPrice)) // Pastikan feedsPrice sudah didefinisikan
+                    .reelsprice(formatPrice(reelsPrice)) // Pastikan reelsPrice sudah didefinisikan
+                    .storyprice(formatPrice(storyPrice)) // Pastikan storyPrice sudah didefinisikan
+                    .category(categoryDto) // Pastikan categoryDto sudah didefinisikan
+                    .usertype(influencer.getUser().getUserType())
+                    .instagramid(influencer.getInstagramId())
+                    .isactive(influencer.getIsActive())
+                    .token(influencer.getToken())
+                    .followers(formatFollowers(Integer.parseInt(dataFollowers)))
+                    .rating(formatRatingDetail(averageRating)) // Pastikan averageRating sudah didefinisikan
+                    .totalreview(formatFollowers(totalReviews)) // Pastikan totalReviews sudah didefinisikan
+                    .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
+                    .issaved(isSaved)
+                    .postmedia(formatFollowers(Integer.parseInt(dataTotalPost)))
+                    .engagement(formatRating(engagement))
+                    .following(formatFollowers(Integer.parseInt(dataFollowing)))
+                    .username(dataUsername)
+                    .bio(dataBio)
+//                    .similarinfluencer()
+                    .avglike(formatFollowers(avgLike))
+                    .avgcomment(formatFollowers(avgComment))
+                    .avgshare(formatFollowers(avgShared))
+                    .avgsaved(formatFollowers(avgSaved))
+                    .totalrating(totalRatingList)
+                    .media(mediaList)
+                    .feeds(feeds)
+                    .reels(reels)
+                    .story(storyList)
+                    .feedback(reviewDtos)
+                    .follgrowth(follGrowth(influencer.getInstagramId(),influencer.getToken()))
+                    .reach(reach(influencer.getInstagramId(),influencer.getToken()))
+                    .topcitiesaud(cityAudience(influencer.getInstagramId(), influencer.getToken()))
+                    .agerangeaud(ageAudience(influencer.getInstagramId(),influencer.getToken()))
+                    .genderaud(genderAudience(influencer.getInstagramId(),influencer.getToken()))
+                    .onlinefollaud(graphDto)
+                    .highestonlinetime(highestTime)
+                    .lowestonlinetime(lowestTime)
+                    .similarinfluencer(findSimilarInfluencers(influencer.getId()))
+                    .build();
+
+            return influencerFilterResponseDto;
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            return null;
+        }
+
+    }
+
+//    INI UNTUK SIMILAR INFLUENCER
+    public List<SimilarInfluencerDto> findSimilarInfluencers(Integer influencerId) {
+        Influencer target = influencerRepository.findById(influencerId).orElse(null);
+        if (target == null) return Collections.emptyList();
+
+        List<Influencer> influencers = influencerRepository.findAll();
+
+        // Get data followers
+        Map<Integer, Integer> followersMap = new HashMap<>();
+
+        for (Influencer influencer: influencers){
+            int followersCount = getFollowersFromInstagramApi(influencer.getToken(), influencer.getInstagramId());
+            followersMap.put(influencer.getId(), followersCount);
+        }
+
+        // Normalisasi umur dan harga
+        double maxAge = influencers.stream().mapToDouble(i -> getAge(i.getDob())).max().orElse(1);
+        double maxPrice = influencers.stream().mapToDouble(this::getMinPrice).max().orElse(1);
+        double maxFollowers = followersMap.values().stream().mapToDouble(f -> f).max().orElse(1);
+
+        double minAge = influencers.stream().mapToDouble(i -> getAge(i.getDob())).min().orElse(0);
+        double minPrice = influencers.stream().mapToDouble(this::getMinPrice).min().orElse(0);
+        double minFollowers = followersMap.values().stream().mapToDouble(f -> f).min().orElse(0);
+
+//        System.out.println("Max age: " + maxAge);
+//        System.out.println("Max price: " + maxPrice);
+//        System.out.println("Max followers: " + maxFollowers);
+//        System.out.println("Min age: " + minAge);
+//        System.out.println("Min price: " + minPrice);
+//        System.out.println("Min followers: " + minFollowers);
+
+        influencers.remove(target);
+        List<SimilarInfluencerDto> similarInfluencers = new ArrayList<>(); // List baru untuk menyimpan hasil
+
+        // **Ambil followers target dari tampungan**
+        int targetFollowers = followersMap.getOrDefault(target.getId(), 0);
+
+        for (Influencer influencer : influencers) {
+            System.out.println("lagi hitung similarity untuk " + influencer.getUser().getName());
+
+            int influencerFollowers = followersMap.getOrDefault(influencer.getId(), 0);
+
+            double euclideanSim = calculateEuclideanSimilarity(target, influencer, targetFollowers, influencerFollowers, maxAge, maxPrice, maxFollowers, minAge, minPrice, minFollowers);
+            double jaccardSim = calculateJaccardSimilarity(target, influencer);
+            double finalScore = (3.0 / 4.0) * euclideanSim + (1.0 / 4.0) * jaccardSim;
+
+//            System.out.println("euclidean: " + euclideanSim);
+//            System.out.println("jaccard: " + jaccardSim);
+//            System.out.println("result: " + finalScore);
+
+            SimilarInfluencerDto dto = SimilarInfluencerDto.builder()
+                    .id(influencer.getId())
+                    .influencerId(influencer.getId())
+                    .username(influencer.getUser().getName())
+                    .category(influencer.getCategories().stream()
+                            .map(Category::getLabel)
+                            .toList()) // Ambil kategori dalam bentuk List<String>
+                    .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId())) // Ambil foto profil dari User
+                    .finalscore(formatRating(finalScore))
+                    .build();
+
+            similarInfluencers.add(dto); // Tambahkan ke list hasil
+        }
+
+        similarInfluencers.sort(Comparator.comparingDouble(dto -> -Double.parseDouble(String.valueOf(dto.getFinalscore()))));
+
+        return similarInfluencers;
+    }
+
+    private double calculateEuclideanSimilarity(Influencer a, Influencer b, int followersA, int followersB, double maxAge, double maxPrice, double maxFollowers, double minAge, double minPrice, double minFollowers) {
+        double ageA = (getAge(a.getDob()) - minAge) / (maxAge - minAge);
+        double priceA = (getMinPrice(a) - minPrice) / (maxPrice - minPrice);
+        double follA = (followersA - minFollowers) / (maxFollowers - minFollowers);
+
+        double ageB = (getAge(b.getDob()) - minAge) / (maxAge - minAge);
+        double priceB = (getMinPrice(b) - minPrice) / (maxPrice - minPrice);
+        double follB = (followersB - minFollowers) / (maxFollowers - minFollowers);
+
+//        System.out.println("euclidean");
+//        System.out.println("Inf A target: " + a.getUser().getName());
+//        System.out.println("age: " + ageA);
+//        System.out.println("min price: " + priceA);
+//        System.out.println("min price real: " + getMinPrice(a));
+//        System.out.println("followers: " + follA);
+//        System.out.println("followers: " + followersA);
+//
+//        System.out.println("Inf B perbandingan: " + b.getUser().getName());
+//        System.out.println("age: " + ageB);
+//        System.out.println("min price: " + priceB);
+//        System.out.println("min price real: " + getMinPrice(b));
+//        System.out.println("followers: " + follB);
+//        System.out.println("followers: " + followersB);
+
+        double distance = Math.sqrt(
+                Math.pow(ageA - ageB, 2) +
+                Math.pow(priceA - priceB, 2) +
+                Math.pow(follA - follB, 2)
+        );
+        return 1 / (1 + distance); // Normalized similarity
+    }
+
+    private double calculateJaccardSimilarity(Influencer a, Influencer b) {
+        Set<Category> setA = new HashSet<>(a.getCategories());
+        Set<Category> setB = new HashSet<>(b.getCategories());
+
+        Set<Category> intersection = new HashSet<>(setA);
+        intersection.retainAll(setB);
+
+        Set<Category> union = new HashSet<>(setA);
+        union.addAll(setB);
+
+//        System.out.println("jaccard");
+//        System.out.println("intersection size: " + intersection.size());
+//        System.out.println("union size: " + union.size());
+
+        return (double) intersection.size() / union.size();
+    }
+
+    private int getAge(LocalDate dob) {
+        return LocalDate.now().getYear() - dob.getYear();
+    }
+
+    private int getMinPrice(Influencer influencer) {
+        return influencerMediaTypeRepository.findByInfluencer(influencer).stream()
+                .mapToInt(InfluencerMediaType::getPrice)
+                .min()
+                .orElse(0);
     }
 
 }

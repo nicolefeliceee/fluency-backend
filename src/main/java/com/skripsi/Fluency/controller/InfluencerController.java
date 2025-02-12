@@ -208,9 +208,9 @@ public class InfluencerController {
         return ResponseEntity.ok(searchInfluencersSaved);
     }
 
-//    @GetMapping("/detail/{influencer-id}/{user-id}")
-//    public ResponseEntity<?> detailInfluencer(@PathVariable(name = "influencer-id") Integer influencerId, @PathVariable(name = "user-id") Integer userId) {
-//        InfluencerDetailResponseDto detailInfluencer = influencerService.detailInfluencer(influencerId, userId);
-//        return ResponseEntity.ok(detailInfluencer);
-//    }
+    @GetMapping("/detail/{influencer-id}/{user-id}")
+    public ResponseEntity<?> detailInfluencer(@PathVariable(name = "influencer-id") Integer influencerId, @PathVariable(name = "user-id") Integer userId) {
+        InfluencerDetailResponseDto detailInfluencer = influencerService.detailInfluencer(influencerId, userId);
+        return ResponseEntity.ok(detailInfluencer);
+    }
 }
