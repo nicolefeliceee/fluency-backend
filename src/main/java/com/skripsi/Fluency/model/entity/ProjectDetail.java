@@ -55,8 +55,10 @@ public class ProjectDetail {
     @Column
     private LocalDateTime analyticsLastUpdated;
 
-    @Column(length = 255)
-    private String analyticsPicture;
+    @Column(columnDefinition = "TEXT")
+    private String mediaUrl;
+
+    @Column(columnDefinition = "TEXT")
     private String analyticsCaption;
 
     @Column

@@ -18,6 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,14 +52,17 @@ public class ProjectService {
     @Value(value = "${base.url}")
     private String baseUrl;
 
-    public ResponseEntity<?> getProject(String statusId, String userId) {
-        List<ProjectHeader> entities = new ArrayList<>();
-        if(statusId == null) {
-            entities = projectHeaderRepository.findAll();
+    public ResponseEntity<?> getProject(String statusId, String userId, String title) {
+        if(title != null) {
+            title = title.trim();
+        }
 
-        } else {
+        List<ProjectHeader> entities = new ArrayList<>();
+        User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+        if((statusId == null || statusId.isEmpty()) && (title == null || title.isEmpty())) {
+            entities = projectHeaderRepository.findAll();
+        } else if(title == null || title.isEmpty()){
             Status status =  statusRepository.findById(Integer.valueOf(statusId)).orElse(null);
-            User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
             Brand brand;
             Influencer influencer;
             if(user.getUserType().equalsIgnoreCase("brand")) {
@@ -67,6 +71,16 @@ public class ProjectService {
             } else if(user.getUserType().equalsIgnoreCase(("influencer"))) {
                 influencer = influencerRepository.findByUser(user);
                 entities = projectHeaderRepository.findAllByStatusAndInfluencerOrderByIdDesc(status, influencer);
+            }
+        } else if(statusId == null || statusId.isEmpty()) {
+            Brand brand;
+            Influencer influencer;
+            if(user.getUserType().equalsIgnoreCase("brand")) {
+                brand = brandRepository.findByUser(user);
+                entities = projectHeaderRepository.findAllByBrandAndTitleContainingIgnoreCaseOrderByIdDesc(brand, title);
+            } else if(user.getUserType().equalsIgnoreCase(("influencer"))) {
+                influencer = influencerRepository.findByUser(user);
+                entities = projectHeaderRepository.findAllByInfluencerAndTitleContainingIgnoreCaseOrderByIdDesc(influencer, title);
             }
         }
 
@@ -92,6 +106,7 @@ public class ProjectService {
                                                 .link(itemDetail.getLink())
                                                 .statusId(itemDetail.getStatus().getId().toString())
                                                 .id(itemDetail.getId().toString())
+                                                .instagramMediaId(itemDetail.getInstagramMediaId())
                                                 .build()
                                 ).collect(Collectors.toList())
                         )
@@ -283,9 +298,6 @@ public class ProjectService {
         ProjectDetail existing = projectDetailRepository.findById(Integer.valueOf(request.getId())).orElse(null);
 
         Status doneStatus = statusRepository.findById(5).orElse(null);
-
-        System.out.println("===========Edit project detail===========");
-        System.out.println(request);
         existing.setStatus(doneStatus);
         existing.setLink(request.getLink());
         existing.setInstagramMediaId(request.getInstagramMediaId());
@@ -305,6 +317,7 @@ public class ProjectService {
                 entity -> {
                     ProjectDetailDto newDetail = ProjectDetailDto.builder()
                             .id(entity.getId().toString())
+                            .instagramMediaId(entity.getInstagramMediaId())
                             .mediatypeId(entity.getMediaType().getId().toString())
                             .note(entity.getNote())
                             .deadlineDate(entity.getDeadlineDate().toString())
@@ -313,14 +326,14 @@ public class ProjectService {
                             .link(entity.getLink())
                             .statusId(entity.getStatus().getId().toString())
                             .analyticsLastUpdated(entity.getAnalyticsLastUpdated())
-                            .analyticsPicture(entity.getAnalyticsPicture())
+                            .analyticsMediaUrl(entity.getMediaUrl())
                             .analyticsCaption(entity.getAnalyticsCaption())
-                            .analyticsLikes(entity.getAnalyticsLikes())
-                            .analyticsComments(entity.getAnalyticsComments())
-                            .analyticsSaved(entity.getAnalyticsSaved())
-                            .analyticsShared(entity.getAnalyticsShared())
-                            .analyticsAccountsEngaged(entity.getAnalyticsAccountsEngaged())
-                            .analyticsAccountsReached(entity.getAnalyticsAccountsReached())
+                            .analyticsLikes(formatFollowers(entity.getAnalyticsLikes() == null? 0 : entity.getAnalyticsLikes()))
+                            .analyticsComments(formatFollowers(entity.getAnalyticsComments() == null? 0 : entity.getAnalyticsComments()))
+                            .analyticsSaved(formatFollowers(entity.getAnalyticsSaved() == null? 0 : entity.getAnalyticsSaved()))
+                            .analyticsShared(formatFollowers(entity.getAnalyticsShared() == null? 0 : entity.getAnalyticsShared()))
+                            .analyticsAccountsEngaged(formatFollowers(entity.getAnalyticsAccountsEngaged() == null? 0 : entity.getAnalyticsAccountsEngaged()))
+                            .analyticsAccountsReached(formatFollowers(entity.getAnalyticsAccountsReached() == null? 0 : entity.getAnalyticsAccountsReached()))
                             .sentimentPositive(entity.getSentimentPositive())
                             .sentimentNegative(entity.getSentimentNegative())
                             .sentimentNeutral(entity.getSentimentNeutral())
@@ -340,10 +353,6 @@ public class ProjectService {
             return null;
         }
 
-        String instagramMediaId = entity.getInstagramMediaId();
-
-
-
         ProjectDetailDto responseDto = ProjectDetailDto.builder()
                 .id(detailId)
                 .mediatypeId(entity.getMediaType().getId().toString())
@@ -355,18 +364,19 @@ public class ProjectService {
                 .statusId(entity.getStatus().getId().toString())
                 .instagramMediaId(entity.getInstagramMediaId())
                 .analyticsLastUpdated(entity.getAnalyticsLastUpdated())
-                .analyticsPicture(entity.getAnalyticsPicture())
+                .analyticsMediaUrl(entity.getMediaUrl())
                 .analyticsCaption(entity.getAnalyticsCaption())
-                .analyticsLikes(entity.getAnalyticsLikes())
-                .analyticsComments(entity.getAnalyticsComments())
-                .analyticsSaved(entity.getAnalyticsSaved())
-                .analyticsShared(entity.getAnalyticsShared())
-                .analyticsAccountsEngaged(entity.getAnalyticsAccountsEngaged())
-                .analyticsAccountsReached(entity.getAnalyticsAccountsReached())
+                .analyticsLikes(formatFollowers(entity.getAnalyticsLikes()))
+                .analyticsComments(formatFollowers(entity.getAnalyticsComments()))
+                .analyticsSaved(formatFollowers(entity.getAnalyticsSaved()))
+                .analyticsShared(formatFollowers(entity.getAnalyticsShared()))
+                .analyticsAccountsEngaged(formatFollowers(entity.getAnalyticsAccountsEngaged()))
+                .analyticsAccountsReached(formatFollowers(entity.getAnalyticsAccountsReached()))
                 .sentimentPositive(entity.getSentimentPositive())
                 .sentimentNegative(entity.getSentimentNegative())
                 .sentimentNeutral(entity.getSentimentNeutral())
                 .build();
+
 
 
         return responseDto;
@@ -374,11 +384,6 @@ public class ProjectService {
 
     public VerifyLinkDto findMediaidByLink(String influencerId, String requestLink) {
         Influencer influencer = influencerRepository.findById(Integer.valueOf(influencerId)).orElse(null);
-
-        String trimmedLink = requestLink;
-        if(requestLink.endsWith("/")) {
-            trimmedLink = requestLink.substring(0, requestLink.length()-1);
-        }
 
         try {
             //            Hit URL API Instagram
@@ -412,7 +417,10 @@ public class ProjectService {
                 //            Ambil permalink
                 String permalink = permalinkJson.get("permalink").asText();
 
-                System.out.println(permalink);
+                String trimmedLink = permalink;
+                if(permalink.endsWith("/")) {
+                    trimmedLink = permalink.substring(0, permalink.length()-1);
+                }
 
                 if(requestLink.contains(trimmedLink)) {
                     return VerifyLinkDto.builder()
@@ -430,6 +438,190 @@ public class ProjectService {
                 .link(requestLink)
                 .build();
 
+    }
+
+    public ResponseEntity<?> deleteProjectHeader(String id) {
+        try {
+            projectHeaderRepository.deleteById(Integer.valueOf(id));
+        } catch (Exception ex) {
+            return ResponseEntity.internalServerError().build();
+        }
+
+        return ResponseEntity.ok(id);
+    }
+
+    @Transactional
+    public ProjectDetailDto getPerformanceAnalytics(String detailId) {
+
+        ProjectDetailDto responseDto = null;
+        try {
+            ProjectDetail entity = projectDetailRepository.findById(Integer.valueOf(detailId)).orElse(null);
+
+            if(entity == null) {
+                return null;
+            }
+
+            Influencer influencer = entity.getProjectHeader().getInfluencer();
+
+            //        hit ig
+            String instagramMediaId = entity.getInstagramMediaId();
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            //            Hit URL API Instagram
+            UriComponentsBuilder getMediaUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + instagramMediaId)
+                    .queryParam("fields", "media_url,caption,comments,comments_count")
+                    .queryParam("access_token", influencer.getToken());
+
+            //            Ambil response
+            ResponseEntity<?> mediaResponse = restTemplate.getForEntity(getMediaUrl.toUriString(), String.class);
+
+            //            Hit URL API Instagram
+            UriComponentsBuilder getInsightUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + instagramMediaId + "/insights")
+                    .queryParam("metric", "likes,shares,saved,reach,views")
+                    .queryParam("access_token", influencer.getToken());
+
+            //            Ambil response
+            ResponseEntity<?> insightResponse = restTemplate.getForEntity(getInsightUrl.toUriString(), String.class);
+
+            //        untuk get username influencer
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + influencer.getInstagramId())
+                    .queryParam("fields", "username")
+                    .queryParam("access_token", influencer.getToken());
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+            JsonNode influencerJson = mapper.readTree(String.valueOf(response.getBody()));
+            String username = influencerJson.get("username").asText();
+
+//            declare field2 analytics
+//            from media
+            String mediaUrl;
+            String caption;
+            String commentsCount;
+            JsonNode comments;
+            String positive;
+            String negative;
+            String neutral;
+
+//            from insight
+            String likes = "";
+            String shared = "";
+            String saved = "";
+            String reach = "";
+            String acctEngaged = "";
+            String views = "";
+
+            if(mediaResponse.getStatusCode().is2xxSuccessful() && insightResponse.getStatusCode().is2xxSuccessful()) {
+                JsonNode mediaJson = mapper.readTree(String.valueOf(mediaResponse.getBody()));
+                JsonNode insightJson = mapper.readTree(String.valueOf(insightResponse.getBody())).get("data");
+
+//                ambil data
+                mediaUrl = mediaJson.get("media_url").asText();
+                caption = mediaJson.get("caption").asText();
+                commentsCount = mediaJson.get("comments_count").asText();
+
+//                for insight
+                for (JsonNode item:insightJson) {
+                    if(item.get("name").asText().equalsIgnoreCase("likes")) {
+                        likes = item.get("values").get(0).get("value").asText();
+                    } else if(item.get("name").asText().equalsIgnoreCase("shares")) {
+                        shared = item.get("values").get(0).get("value").asText();
+                    } else if(item.get("name").asText().equalsIgnoreCase("saved")) {
+                        saved = item.get("values").get(0).get("value").asText();
+                    } else if(item.get("name").asText().equalsIgnoreCase("views")) {
+                        views = item.get("values").get(0).get("value").asText();
+                    } else if(item.get("name").asText().equalsIgnoreCase("reach")) {
+                        reach = item.get("values").get(0).get("value").asText();
+                    }
+                }
+
+//               temp
+                acctEngaged = views;
+
+                //            hitung sentiment analysis percentage
+                comments = mediaJson.get("comments").get("data");
+//                HashMap<String, String> sentimentResult = calculateSentimentAnalysis(comments);
+
+//                simpan ke db
+                entity.setAnalyticsCaption(caption);
+                entity.setMediaUrl(mediaUrl);
+                entity.setAnalyticsComments(Integer.valueOf(commentsCount.isEmpty()? "0" : commentsCount));
+                entity.setAnalyticsLikes(Integer.valueOf(likes.isEmpty()? "0" : likes));
+                entity.setAnalyticsShared(Integer.valueOf(shared.isEmpty()? "0" : shared));
+                entity.setAnalyticsSaved(Integer.valueOf(saved.isEmpty()? "0" : saved));
+                entity.setAnalyticsAccountsReached(Integer.valueOf(reach.isEmpty()? "0" : reach));
+                entity.setAnalyticsAccountsEngaged(Integer.valueOf(acctEngaged .isEmpty()? "0" :acctEngaged));
+
+                projectDetailRepository.save(entity);
+
+            } else {
+//                balikin dari db lgsg
+
+                mediaUrl = entity.getMediaUrl();
+                caption = entity.getAnalyticsCaption();
+                likes = entity.getAnalyticsLikes().toString();
+                shared = entity.getAnalyticsShared().toString();
+                saved = entity.getAnalyticsSaved().toString();
+                commentsCount = entity.getAnalyticsComments().toString();
+                acctEngaged = entity.getAnalyticsAccountsEngaged().toString();
+                reach = entity.getAnalyticsAccountsReached().toString();
+            }
+
+            System.out.println(mediaUrl);
+
+//            terakhir baru balikin
+            responseDto = ProjectDetailDto.builder()
+                    .id(detailId)
+                    .mediatypeId(entity.getMediaType().getId().toString())
+                    .note(entity.getNote())
+                    .deadlineDate(entity.getDeadlineDate().toString())
+                    .deadlineTime(entity.getDeadlineTime().toString())
+                    .nominal(entity.getNominal().toString())
+                    .link(entity.getLink())
+                    .statusId(entity.getStatus().getId().toString())
+                    .instagramMediaId(entity.getInstagramMediaId())
+                    .influencerUsername(username)
+                    .analyticsLastUpdated(entity.getAnalyticsLastUpdated())
+                    .analyticsMediaUrl(mediaUrl)
+                    .analyticsCaption(caption)
+                    .analyticsLikes(formatFollowers(Integer.valueOf(likes)))
+                    .analyticsComments(formatFollowers(Integer.valueOf(commentsCount)))
+                    .analyticsSaved(formatFollowers(Integer.valueOf(saved)))
+                    .analyticsShared(formatFollowers(Integer.valueOf(shared)))
+                    .analyticsAccountsEngaged(formatFollowers(Integer.valueOf(acctEngaged)))
+                    .analyticsAccountsReached(formatFollowers(Integer.valueOf(reach)))
+                    .sentimentPositive(entity.getSentimentPositive())
+                    .sentimentNegative(entity.getSentimentNegative())
+                    .sentimentNeutral(entity.getSentimentNeutral())
+                    .build();
+
+        } catch (Exception ex) {
+            System.out.println(ex.toString());
+        }
+
+        return responseDto;
+    }
+
+    public HashMap<String, String> calculateSentimentAnalysis(JsonNode comments) {
+
+        HashMap<String, String> responseMap = new HashMap<>();
+
+
+
+        return responseMap;
+    }
+
+    public static String formatFollowers(int followers) {
+        if (followers >= 1_000_000) {
+            double value = followers / 1_000_000.0;
+            return (value % 1 == 0) ? ((int) value + "M") : String.format("%.1fM", value);
+        } else if (followers >= 1_000) {
+            double value = followers / 1_000.0;
+            return (value % 1 == 0) ? ((int) value + "k") : String.format("%.1fk", value);
+        }
+        return String.valueOf(followers);
     }
 
 

@@ -154,4 +154,33 @@ public class WalletService {
 
         return response;
     }
+
+    public String checkout(Integer userId, Integer amount) {
+        WalletHeader walletHeader = walletHeaderRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for user ID: " + userId));
+
+        // Cek saldo mencukupi
+        if (walletHeader.getBalance() < amount) {
+            throw new RuntimeException("Insufficient balance");
+        }
+
+        // Kurangi saldo
+        walletHeader.setBalance(walletHeader.getBalance() - amount);
+        walletHeaderRepository.save(walletHeader);
+
+        // Ambil TransactionType untuk pay influencer (ID = 2)
+        TransactionType transactionType = transactionTypeRepository.findById(2)
+                .orElseThrow(() -> new RuntimeException("Transaction type 'Transfer' not found"));
+
+
+        // Buat WalletDetail baru
+        WalletDetail walletDetail = new WalletDetail();
+        walletDetail.setWalletHeader(walletHeader);
+        walletDetail.setNominal(amount); // Nominal sebagai Integer
+        walletDetail.setTransactionType(transactionType); // Contoh TransactionType
+        walletDetail.setDateTime(LocalDateTime.now());
+        walletDetailRepository.save(walletDetail);
+
+        return "Transfer successful";
+    }
 }

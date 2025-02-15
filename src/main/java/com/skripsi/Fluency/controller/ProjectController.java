@@ -20,9 +20,10 @@ public class ProjectController {
 
     @GetMapping("{user_id}")
     public ResponseEntity<?> getProject(@PathVariable(name = "user_id") String userId,
-                                        @RequestParam(name = "status", required = false) String status) {
-
-        return projectService.getProject(status, userId);
+                                        @RequestParam(name = "status", required = false) String status,
+                                        @RequestParam(name = "title", required = false) String title
+    ) {
+        return projectService.getProject(status, userId, title);
 
     }
 
@@ -72,4 +73,22 @@ public class ProjectController {
             return ResponseEntity.ok(response);
         }
     }
+
+    @DeleteMapping("{id}")
+    public ResponseEntity<?> deleteProjectHeader(@PathVariable(name = "id") String projectHeaderId) {
+        return projectService.deleteProjectHeader(projectHeaderId);
+    }
+
+    @GetMapping("performance-analytics/{id}")
+    public ResponseEntity<?> getPerformanceAnalytics(@PathVariable(name = "id") String id) {
+
+        ProjectDetailDto response = projectService.getPerformanceAnalytics(id);
+        if(response == null) {
+            return ResponseEntity.notFound().build();
+        } else {
+            return ResponseEntity.ok(response);
+        }
+    }
+
+
 }

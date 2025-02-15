@@ -19,15 +19,16 @@ public class ProjectDetailDto {
 
 //    for perfomance
     private String instagramMediaId;
+    private String influencerUsername;
     private LocalDateTime analyticsLastUpdated;
-    private String analyticsPicture;
+    private String analyticsMediaUrl;
     private String analyticsCaption;
-    private Integer analyticsLikes;
-    private Integer analyticsComments;
-    private Integer analyticsSaved;
-    private Integer analyticsShared;
-    private Integer analyticsAccountsEngaged;
-    private Integer analyticsAccountsReached;
+    private String analyticsLikes;
+    private String analyticsComments;
+    private String analyticsSaved;
+    private String analyticsShared;
+    private String analyticsAccountsEngaged;
+    private String analyticsAccountsReached;
     private Double sentimentPositive;
     private Double sentimentNegative;
     private Double sentimentNeutral;

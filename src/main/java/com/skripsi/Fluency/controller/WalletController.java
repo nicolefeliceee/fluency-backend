@@ -54,4 +54,26 @@ public class WalletController {
         }
     }
 
+    @PostMapping("checkout/{user-id}")
+    public ResponseEntity<?> checkout(@RequestBody Integer amount, @PathVariable(name = "user-id") Integer userId) {
+        try {
+            System.out.println("ini masuk wallet controller transfer");
+            String result = walletService.checkout(userId, amount);
+
+            if ("Transfer successful".equals(result)) {
+                return ResponseEntity.ok(userId);
+            } else if ("Wallet not found".equals(result)) {
+//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+                return ResponseEntity.notFound().build() ;
+            } else if ("Insufficient balance".equals(result)) {
+                return  ResponseEntity.unprocessableEntity().build();
+            } else {
+                return ResponseEntity.badRequest().build() ;
+            }
+        } catch(Exception e) {
+            System.out.println(e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 }

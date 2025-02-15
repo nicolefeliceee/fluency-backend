@@ -42,7 +42,7 @@ public class ProjectHeader {
     private String referenceNumber;
 
     //    tambahan
-    @OneToMany(mappedBy = "projectHeader")
+    @OneToMany(mappedBy = "projectHeader", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProjectDetail> projectDetails;
 
     @OneToOne

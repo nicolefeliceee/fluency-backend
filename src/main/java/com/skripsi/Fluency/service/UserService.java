@@ -372,7 +372,7 @@ public class UserService {
                         item -> item.getMediaType().getLabel().equalsIgnoreCase("story")
                 ).toString();
 
-                InfluencerProfileDto profileDto = InfluencerProfileDto.builder()
+                InfluencerProfileDto influencerProfileDto = InfluencerProfileDto.builder()
                         .name(user.getName())
                         .email(user.getEmail())
                         .phone(user.getPhone())
@@ -385,7 +385,7 @@ public class UserService {
                         .storyPrice(storyPrice)
                         .build();
 
-                return ResponseEntity.ok(profileDto);
+                return ResponseEntity.ok(influencerProfileDto);
             }
         } catch(Exception ex) {
             System.out.println(ex.getMessage());
