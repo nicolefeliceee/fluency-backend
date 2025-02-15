@@ -701,12 +701,23 @@ public class InfluencerService {
         return formatter.format(Long.parseLong(price));
     }
 
+//    public static String formatFollowers(int followers) {
+////        System.out.println("ini lagi di format followers");
+//        if (followers >= 1_000_000) {
+//            return followers / 1_000_000 + "M";
+//        } else if (followers >= 1_000) {
+//            return followers / 1_000 + "k";
+//        }
+//        return String.valueOf(followers);
+//    }
+
     public static String formatFollowers(int followers) {
-//        System.out.println("ini lagi di format followers");
         if (followers >= 1_000_000) {
-            return followers / 1_000_000 + "M";
+            double value = followers / 1_000_000.0;
+            return (value % 1 == 0) ? ((int) value + "M") : String.format("%.1fM", value);
         } else if (followers >= 1_000) {
-            return followers / 1_000 + "k";
+            double value = followers / 1_000.0;
+            return (value % 1 == 0) ? ((int) value + "k") : String.format("%.1fk", value);
         }
         return String.valueOf(followers);
     }
@@ -2455,8 +2466,9 @@ public class InfluencerService {
         }
 
         similarInfluencers.sort(Comparator.comparingDouble(dto -> -Double.parseDouble(String.valueOf(dto.getFinalscore()))));
+        List<SimilarInfluencerDto> top3SimilarInfluencers = similarInfluencers.subList(0, Math.min(3, similarInfluencers.size()));
 
-        return similarInfluencers;
+        return top3SimilarInfluencers;
     }
 
     private double calculateEuclideanSimilarity(Influencer a, Influencer b, int followersA, int followersB, double maxAge, double maxPrice, double maxFollowers, double minAge, double minPrice, double minFollowers) {
