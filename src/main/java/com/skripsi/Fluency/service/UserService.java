@@ -42,6 +42,10 @@ public class UserService {
     public CategoryRepository categoryRepository;
     @Autowired
     public WalletHeaderRepository walletHeaderRepository;
+    @Autowired
+    public MediaTypeRepository mediaTypeRepository;
+    @Autowired
+    public InfluencerMediaTypeRepository influencerMediaTypeRepository;
 
     public LoginResponseDto login(LoginBrandRequestDto loginBrandRequestDto) {
         User user = userRepository.findByEmail(loginBrandRequestDto.getEmail());
@@ -181,9 +185,6 @@ public class UserService {
                 profilePictureName = profilePicture.getName();
             }
 
-//            System.out.println(Arrays.toString(profilePictureByte));
-//            System.out.println(Arrays.toString(profilePicture.getBytes()));
-
             Brand newBrand = Brand.builder()
                     .password(requestDto.getPassword())
                     .profilePictureByte(profilePictureByte)
@@ -214,12 +215,86 @@ public class UserService {
             System.out.println(ex.getMessage());
             throw ex;
         }
+        return ResponseEntity.ok(requestDto);
+    }
+
+    @Transactional
+    public ResponseEntity<?> editProfileBrand(String userId, String requestString, MultipartFile profilePicture) throws IOException {
+        SignupBrandRequestDto requestDto;
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            requestDto = objectMapper.readValue(requestString, SignupBrandRequestDto.class);
+
+//            check email exist
+            User existing = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+            if(existing == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+
+//        save user dulu
+            Location location = locationRepository.findById(requestDto.getLocation()).orElse(null);
+
+            existing.setName(requestDto.getName());
+            existing.setEmail(requestDto.getEmail());
+            existing.setPhone(requestDto.getPhone());
+            existing.setLocation(location);
+
+            userRepository.save(existing);
+
+//        habis itu save brand
+            List<Age> targetAges = new ArrayList<>();
+            List<Gender> targetGender = new ArrayList<>();
+            List<Location> targetLocation = new ArrayList<>();
+            Category category = categoryRepository.findById(Integer.valueOf(requestDto.getCategory()[0])).orElse(null);
+
+            for(String item: requestDto.getTargetAgeRange()) {
+                Age found = ageRepository.findById(Integer.valueOf(item)).orElse(null);
+                targetAges.add(found);
+            }
+
+            for(String item: requestDto.getTargetGender()) {
+                Gender found = genderRepository.findById(Integer.valueOf(item)).orElse(null);
+                targetGender.add(found);
+            }
+
+            for(String item: requestDto.getTargetLocation()) {
+                Location found = locationRepository.findById(Integer.valueOf(item)).orElse(null);
+                targetLocation.add(found);
+            }
+
+            byte[] profilePictureByte = null;
+            String profilePictureType = null;
+            String profilePictureName = null;
+            if(profilePicture != null && !profilePicture.isEmpty()) {
+                profilePictureByte = profilePicture.getBytes();
+                profilePictureType = profilePicture.getContentType();
+                profilePictureName = profilePicture.getName();
+            }
+
+            Brand currBrand = existing.getBrand();
+
+            currBrand.setProfilePictureByte(profilePictureByte);
+            currBrand.setProfilePictureType(profilePictureType);
+            currBrand.setProfilePictureName(profilePictureName);
+            currBrand.setCategory(category);
+            currBrand.setAges(targetAges);
+            currBrand.setGenders(targetGender);
+            currBrand.setLocations(targetLocation);
+
+            brandRepository.save(currBrand);
+
+        } catch(Exception ex) {
+            System.out.println(ex.getMessage());
+            throw ex;
+        }
 
         return ResponseEntity.ok(requestDto);
 
     }
 
-    @Transactional
+    @Transactional(rollbackOn = Exception.class)
     public ResponseEntity<?> signUpInfluencer(SignupInfluencerRequestDto requestDto) {
 
         try {
@@ -230,7 +305,6 @@ public class UserService {
             if(check != null) {
                 return ResponseEntity.ok("Email already exists");
             }
-
 
 //        create user dulu
             Location location = locationRepository.findById(requestDto.getLocation()).orElse(null);
@@ -248,21 +322,58 @@ public class UserService {
 //        habis itu create influencer
             Gender found = genderRepository.findById(Integer.valueOf(requestDto.getGender())).orElse(null);
 
+//            save category
+            List<Category> categories = new ArrayList<>();
+            for(String id: requestDto.getCategory()) {
+                Category newCategory = categoryRepository.findById(Integer.valueOf(id)).orElse(null);
+                categories.add(newCategory);
+            }
+
             Influencer newInfluencer = Influencer.builder()
                     .user(savedUser)
                     .dob(LocalDate.parse(requestDto.getDob()))
                     .instagramId(requestDto.getInstagramId())
                     .token(requestDto.getToken())
                     .gender(found)
+                    .categories(categories)
                     .isActive(false)
                     .build();
 
             Influencer savedInfluencer = influencerRepository.save(newInfluencer);
 
-
             //            sambungin user ke influencer
             savedUser.setInfluencer(savedInfluencer);
             userRepository.save(savedUser);
+
+//            save mediatypes
+            List<InfluencerMediaType> mediatypes = new ArrayList<>();
+            if(requestDto.getStoryPrice()!= null && !requestDto.getStoryPrice().isEmpty()) {
+                InfluencerMediaType story = InfluencerMediaType.builder()
+                        .price(Integer.valueOf(requestDto.getStoryPrice()))
+                        .influencer(savedInfluencer)
+                        .mediaType(mediaTypeRepository.findById(1).orElse(null))
+                        .build();
+
+                influencerMediaTypeRepository.save(story);
+            }
+            if(requestDto.getFeedsPrice()!= null && !requestDto.getFeedsPrice().isEmpty()) {
+                InfluencerMediaType feeds = InfluencerMediaType.builder()
+                        .price(Integer.valueOf(requestDto.getFeedsPrice()))
+                        .influencer(savedInfluencer)
+                        .mediaType(mediaTypeRepository.findById(2).orElse(null))
+                        .build();
+
+                influencerMediaTypeRepository.save(feeds);
+            }
+            if(requestDto.getReelsPrice()!= null && !requestDto.getReelsPrice().isEmpty()) {
+                InfluencerMediaType reels = InfluencerMediaType.builder()
+                        .price(Integer.valueOf(requestDto.getReelsPrice()))
+                        .influencer(savedInfluencer)
+                        .mediaType(mediaTypeRepository.findById(3).orElse(null))
+                        .build();
+
+                influencerMediaTypeRepository.save(reels);
+            }
 
             //            create wallet header
             WalletHeader walletHeader = WalletHeader.builder()
@@ -273,11 +384,10 @@ public class UserService {
             walletHeaderRepository.save(walletHeader);
 
         } catch(Exception ex) {
-            System.out.println(ex.getMessage());
+            throw new RuntimeException(ex);
         }
 
         return ResponseEntity.ok(requestDto);
-
     }
 
 
@@ -318,7 +428,7 @@ public class UserService {
                         item -> {
                             Map<String, String> newMap = new HashMap<>();
                             newMap.put("id", String.valueOf(item.getId()));
-                            newMap.put("label", item.getLabel());
+                            newMap.put("label", capitalizeWords(item.getLabel()));
                             return newMap;
                         }
                 ).collect(Collectors.toList());
@@ -329,16 +439,28 @@ public class UserService {
                             Map<String, String> newMap = new HashMap<>();
                             newMap.put("id", String.valueOf(item.getId()));
                             newMap.put("label", item.getLabel());
+                            newMap.put("logo", item.getLogo());
+                            newMap.put("active_logo", item.getActiveLogo());
                             return newMap;
                         }
                 ).collect(Collectors.toList());
 
+                HashMap<String, String> locationMap = new HashMap<>();
+                locationMap.put("id", user.getLocation().getId().toString());
+                locationMap.put("label", capitalizeWords(user.getLocation().getLabel()));
+
+                HashMap<String, String> categoryMap = new HashMap<>();
+                categoryMap.put("id", user.getBrand().getCategory().getId().toString());
+                categoryMap.put("label", capitalizeWords(user.getBrand().getCategory().getLabel()));
+
                 BrandProfileDto brandProfileDto = BrandProfileDto.builder()
                         .name(user.getName())
                         .category(user.getBrand().getCategory().getLabel())
+                        .categoryMap(categoryMap)
                         .email(user.getEmail())
                         .phone(user.getPhone())
-                        .location(user.getLocation().getLabel())
+                        .locationMap(locationMap)
+                        .location(capitalizeWords(user.getLocation().getLabel()))
                         .targetAgeRange(targetAge)
                         .targetGender(targetGender)
                         .targetLocation(targetLocation)
@@ -355,7 +477,7 @@ public class UserService {
                         item -> {
                             Map<String, String> newMap = new HashMap<>();
                             newMap.put("id", String.valueOf(item.getId()));
-                            newMap.put("label", item.getLabel());
+                            newMap.put("label", capitalizeWords(item.getLabel()));
                             return newMap;
                         }
                 ).collect(Collectors.toList());
@@ -378,6 +500,7 @@ public class UserService {
                         .phone(user.getPhone())
                         .gender(user.getInfluencer().getGender().getLabel())
                         .instagramId(user.getInfluencer().getInstagramId())
+                        .location(capitalizeWords(user.getLocation().getLabel()))
                         .category(categories)
                         .token(user.getInfluencer().getToken())
                         .feedsPrice(feedsPrice)
@@ -394,5 +517,18 @@ public class UserService {
 
 
         return null;
+    }
+
+    public String capitalizeWords(String input) {
+        String[] words = input.split(" ");
+        StringBuilder capitalized = new StringBuilder();
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                capitalized.append(word.substring(0, 1).toUpperCase())
+                        .append(word.substring(1).toLowerCase())
+                        .append(" ");
+            }
+        }
+        return capitalized.toString().trim();
     }
 }

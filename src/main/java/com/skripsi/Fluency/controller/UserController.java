@@ -51,8 +51,6 @@ public class UserController {
             @RequestPart("data") String requestDto,
             @RequestPart(value = "profile_picture", required = false) MultipartFile profilePicture
             ) {
-        System.out.println(requestDto);
-        System.out.println(profilePicture);
 
         try {
             ResponseEntity<?> response = userService.signUpBrand(requestDto, profilePicture);
@@ -67,9 +65,13 @@ public class UserController {
     public ResponseEntity<?> signupInfluencer(@RequestBody SignupInfluencerRequestDto requestDto) {
         System.out.println(requestDto);
 
-        ResponseEntity<?> response = userService.signUpInfluencer(requestDto);
+        try {
+            ResponseEntity<?> response = userService.signUpInfluencer(requestDto);
+            return response;
+        } catch (RuntimeException ex) {
+            return ResponseEntity.internalServerError().build();
+        }
 
-        return response;
     }
 
     @GetMapping("validation/email/{email}")
@@ -84,6 +86,21 @@ public class UserController {
             return userService.getProfile(userId);
         } catch(Exception ex) {
             return ResponseEntity.internalServerError().build() ;
+        }
+    }
+
+    @PutMapping(value = "brand/profile/{user-id}", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    public ResponseEntity<?> editProfileBrand(
+            @PathVariable(name = "user-id") String userId,
+            @RequestPart("data") String requestDto,
+            @RequestPart(value = "profile_picture", required = false) MultipartFile profilePicture
+    ) {
+        try {
+            ResponseEntity<?> response = userService.editProfileBrand(userId, requestDto, profilePicture);
+
+            return response;
+        } catch(Exception ex) {
+            return ResponseEntity.internalServerError().build();
         }
     }
 

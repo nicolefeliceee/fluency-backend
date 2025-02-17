@@ -2,6 +2,7 @@ package com.skripsi.Fluency.controller;
 
 import com.skripsi.Fluency.model.dto.ProjectDetailDto;
 import com.skripsi.Fluency.model.dto.ProjectHeaderDto;
+import com.skripsi.Fluency.model.dto.SentimentAnalysisDto;
 import com.skripsi.Fluency.model.dto.VerifyLinkDto;
 import com.skripsi.Fluency.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +89,13 @@ public class ProjectController {
         } else {
             return ResponseEntity.ok(response);
         }
+    }
+
+
+    @GetMapping("sentiment-analysis/{id}")
+    public ResponseEntity<?> getSentimentAnalysis(@PathVariable(name = "id") String id) {
+        ResponseEntity<?> response = projectService.getSentimentAnalysis(id);
+        return response;
     }
 
 

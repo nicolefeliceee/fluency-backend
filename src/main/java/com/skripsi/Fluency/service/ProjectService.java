@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skripsi.Fluency.model.dto.ProjectDetailDto;
 import com.skripsi.Fluency.model.dto.ProjectHeaderDto;
+import com.skripsi.Fluency.model.dto.SentimentAnalysisDto;
 import com.skripsi.Fluency.model.dto.VerifyLinkDto;
 import com.skripsi.Fluency.model.entity.*;
 import com.skripsi.Fluency.repository.*;
 import jakarta.transaction.Transactional;
+import org.apache.coyote.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +54,12 @@ public class ProjectService {
 
     @Value(value = "${base.url}")
     private String baseUrl;
+
+    @Value(value = "${sentiment.analysis.url}")
+    private String sentimentUrl;
+
+    @Value(value = "${sentiment.analysis.comments.limit}")
+    private String commentLimit;
 
     public ResponseEntity<?> getProject(String statusId, String userId, String title) {
         if(title != null) {
@@ -201,8 +210,6 @@ public class ProjectService {
 
     @Transactional
     public ResponseEntity<?> editProject(ProjectHeaderDto requestDto) {
-        System.out.println("========Edit project=======");
-        System.out.println(requestDto);
         ProjectHeader existing = projectHeaderRepository.findById(Integer.valueOf(requestDto.getId())).orElse(null);
 
         if(existing == null) {
@@ -277,14 +284,12 @@ public class ProjectService {
         ).toList();
         newDetails.stream().map(
                 item -> {
-                    System.out.print(item.getId());
                     return item.getId();
                 }
         );
         List<ProjectDetail> savedDetails = projectDetailRepository.saveAll(newDetails);
         savedDetails.stream().map(
                 item -> {
-                    System.out.print(item.getId());
                     return item.getId();
                 }
         );
@@ -404,7 +409,6 @@ public class ProjectService {
 
             for(var item: data) {
 // hit ig buat dapetin permalink dari masing2 media id
-                System.out.println(item.get("id").asText());
                 UriComponentsBuilder getPermalinkUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + item.get("id").asText())
                         .queryParam("fields", "permalink")
                         .queryParam("access_token", influencer.getToken());
@@ -412,7 +416,6 @@ public class ProjectService {
                 //            Ambil response
                 ResponseEntity<?> permalinkResponse = restTemplate.getForEntity(getPermalinkUrl.toUriString(), String.class);
                 JsonNode permalinkJson = mapper.readTree(String.valueOf(permalinkResponse.getBody()));
-                System.out.println(permalinkResponse);
 
                 //            Ambil permalink
                 String permalink = permalinkJson.get("permalink").asText();
@@ -470,7 +473,7 @@ public class ProjectService {
 
             //            Hit URL API Instagram
             UriComponentsBuilder getMediaUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + instagramMediaId)
-                    .queryParam("fields", "media_url,caption,comments,comments_count")
+                    .queryParam("fields", "media_url,caption,comments_count")
                     .queryParam("access_token", influencer.getToken());
 
             //            Ambil response
@@ -540,10 +543,6 @@ public class ProjectService {
 //               temp
                 acctEngaged = views;
 
-                //            hitung sentiment analysis percentage
-                comments = mediaJson.get("comments").get("data");
-//                HashMap<String, String> sentimentResult = calculateSentimentAnalysis(comments);
-
 //                simpan ke db
                 entity.setAnalyticsCaption(caption);
                 entity.setMediaUrl(mediaUrl);
@@ -568,8 +567,6 @@ public class ProjectService {
                 acctEngaged = entity.getAnalyticsAccountsEngaged().toString();
                 reach = entity.getAnalyticsAccountsReached().toString();
             }
-
-            System.out.println(mediaUrl);
 
 //            terakhir baru balikin
             responseDto = ProjectDetailDto.builder()
@@ -604,13 +601,136 @@ public class ProjectService {
         return responseDto;
     }
 
-    public HashMap<String, String> calculateSentimentAnalysis(JsonNode comments) {
+    public ResponseEntity<?> getSentimentAnalysis(String projectDetailId) {
+        ProjectDetail entity = projectDetailRepository.findById(Integer.valueOf(projectDetailId)).orElse(null);
 
-        HashMap<String, String> responseMap = new HashMap<>();
+        SentimentAnalysisDto responseDto;
 
+        if(entity == null) {
+            return ResponseEntity.notFound().build();
+        }
 
+        Influencer influencer = influencerRepository.findById(entity.getProjectHeader().getInfluencer().getId()).orElse(null);
 
-        return responseMap;
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            //            Hit URL API Instagram
+            UriComponentsBuilder getCommentsUrl = UriComponentsBuilder.fromUriString(baseUrl + "/" + entity.getInstagramMediaId() + "/comments")
+                    .queryParam("fields", "text,username,like_count,timestamp")
+                    .queryParam("limit", commentLimit)
+                    .queryParam("access_token", influencer.getToken());
+
+            //            Ambil response
+            ResponseEntity<?> commmentResponse = restTemplate.getForEntity(getCommentsUrl.toUriString(), String.class);
+
+            JsonNode commentJson = mapper.readTree(String.valueOf(commmentResponse.getBody()));
+            JsonNode comments = commentJson.get("data");
+
+            responseDto = calculateSentimentAnalysis(comments);
+        } catch(Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+
+        return ResponseEntity.ok(responseDto);
+    }
+
+    public SentimentAnalysisDto calculateSentimentAnalysis(JsonNode comments) {
+
+        Integer commentsCount = 0;
+        Integer sentimentPositiveCount = 0;
+        Integer sentimentNegativeCount = 0;
+        Integer sentimentNeutralCount = 0;
+        List<HashMap<String, String>> topComments = new ArrayList<>();
+
+        Integer max1 = Integer.MIN_VALUE;
+        Integer max2 = Integer.MIN_VALUE;
+        Integer max3 = Integer.MIN_VALUE;
+
+        HashMap<String, String> comment1 = new HashMap<>();
+        HashMap<String, String> comment2 = new HashMap<>();
+        HashMap<String, String> comment3 = new HashMap<>();
+
+        List<String> commentsText = new ArrayList<>();
+
+//        bikin array of comments & get top comments
+        for(JsonNode comment: comments) {
+            commentsText.add(comment.get("text").asText());
+            commentsCount++;
+
+            if(comment.get("like_count").asInt() > max1) {
+                max1 = comment.get("like_count").asInt();
+                comment1.clear();
+                comment1.put("username", comment.get("username").asText());
+                comment1.put("text", comment.get("text").asText());
+                comment1.put("like_count", comment.get("like_count").asText());
+                String commmentTime = getCommentTime(comment.get("timestamp").asText());
+                comment1.put("comment_time", commmentTime);
+            } else if(comment.get("like_count").asInt() > max2) {
+                max2 = comment.get("like_count").asInt();
+                comment2.clear();
+                comment2.put("username", comment.get("username").asText());
+                comment2.put("text", comment.get("text").asText());
+                comment2.put("like_count", comment.get("like_count").asText());
+                String commmentTime = getCommentTime(comment.get("timestamp").asText());
+                comment2.put("comment_time", commmentTime);
+            } else if(comment.get("like_count").asInt() > max3) {
+                max3 = comment.get("like_count").asInt();
+                comment3.clear();
+                comment3.put("username", comment.get("username").asText());
+                comment3.put("text", comment.get("text").asText());
+                comment3.put("like_count", comment.get("like_count").asText());
+                String commmentTime = getCommentTime(comment.get("timestamp").asText());
+                comment3.put("comment_time", commmentTime);
+            }
+        }
+
+        try {
+
+//        hit api
+            Map<String, List<String>> request = new HashMap<>();
+            request.put("comments", commentsText);
+
+            ObjectMapper mapper = new ObjectMapper();
+            ResponseEntity<?> response = restTemplate.postForEntity(sentimentUrl, request, String.class);
+            JsonNode sentimentJson = mapper.readTree(String.valueOf(response.getBody()));
+            JsonNode sentiments = sentimentJson.get("sentiments");
+
+//        loop itung total
+            for(JsonNode sentiment: sentiments) {
+                if(sentiment.get("label").asText().contains("5") || sentiment.get("label").asText().contains("4")) {
+                    sentimentPositiveCount++;
+                } else if(sentiment.get("label").asText().contains("3")) {
+                    sentimentNeutralCount++;
+                } else if(sentiment.get("label").asText().contains("2") || sentiment.get("label").asText().contains("2")) {
+                    sentimentNegativeCount++;
+                }
+            }
+
+        } catch(Exception ex) {
+            ex.printStackTrace();
+            throw new RuntimeException();
+        }
+
+        if(!comment1.isEmpty()) {
+            topComments.add(comment1);
+        }
+        if(!comment2.isEmpty()) {
+            topComments.add(comment2);
+        }
+        if(!comment3.isEmpty()) {
+            topComments.add(comment3);
+        }
+
+        SentimentAnalysisDto responseDto = SentimentAnalysisDto.builder()
+                .sentimentNegative(sentimentNegativeCount.toString())
+                .sentimentNeutral(sentimentNeutralCount.toString())
+                .sentimentPositive(sentimentPositiveCount.toString())
+                .topComments(topComments)
+                .build();
+
+        return responseDto;
     }
 
     public static String formatFollowers(int followers) {
@@ -622,6 +742,31 @@ public class ProjectService {
             return (value % 1 == 0) ? ((int) value + "k") : String.format("%.1fk", value);
         }
         return String.valueOf(followers);
+    }
+
+    public static String getCommentTime(String timestamp) {
+        if (timestamp.endsWith("+0000") || timestamp.endsWith("-0000")) {
+            timestamp = timestamp.substring(0, timestamp.length() - 5) + "+00:00";
+        }
+
+        OffsetDateTime pastTime = OffsetDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        OffsetDateTime now = OffsetDateTime.now();
+        Duration duration = Duration.between(pastTime, now);
+
+        long seconds = duration.getSeconds();
+        if (seconds < 60) return seconds + "s";
+
+        long minutes = duration.toMinutes();
+        if (minutes < 60) return minutes + "m";
+
+        long hours = duration.toHours();
+        if (hours < 24) return hours + "h";
+
+        long days = duration.toDays();
+        if (days < 7) return days + "d";
+
+        long weeks = days / 7;
+        return weeks + "w";
     }
 
 
