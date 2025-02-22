@@ -2,13 +2,15 @@ package com.skripsi.Fluency.controller;
 
 import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.service.InfluencerService;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @RestController
 @RequestMapping("influencer")
@@ -171,26 +173,6 @@ public class InfluencerController {
         }
     }
 
-//    @PostMapping("category/{user-id}")
-//    public ResponseEntity<?> filterInfluencersByCategoryId(@PathVariable(name = "user-id") Integer brandUserId, @RequestParam Integer status, @RequestBody List<InfluencerFilterResponseDto> influencers) {
-//        try {
-//            System.out.println("ini masuk controller category influencer");
-//            System.out.println("INI INFLUENCER NYA: " + influencers);
-//            System.out.println("brandUserId: " + brandUserId);
-//            System.out.println("categoryId: " + status);
-//
-//            // Panggil service untuk filter influencer berdasarkan categoryId
-//            List<InfluencerFilterResponseDto> filteredInfluencers = influencerService.filterInfluencersByCategoryId(status, influencers);
-//
-//            // Return hasil filtering
-//            return ResponseEntity.ok(filteredInfluencers);
-//
-//        } catch (Exception e) {
-//            return ResponseEntity.internalServerError().build() ;
-////            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error saving influencer: " + e.getMessage());
-//        }
-//    }
-
     @GetMapping("{influencer-id}")
     public ResponseEntity<?> getInfluencer(@PathVariable(name = "influencer-id") String id) {
         return this.influencerService.getInfluencer(id);
@@ -213,4 +195,54 @@ public class InfluencerController {
         InfluencerDetailResponseDto detailInfluencer = influencerService.detailInfluencer(influencerId, userId);
         return ResponseEntity.ok(detailInfluencer);
     }
+
+//    ini untuk home influencer
+    @GetMapping("/home/{user-id}")
+    public ResponseEntity<?> detailHomeInfluencer(@PathVariable(name = "user-id") Integer userId) {
+        InfluencerHomeDto detailHomeInfluencer = influencerService.detailHomeInfluencer(userId);
+        return ResponseEntity.ok(detailHomeInfluencer);
+    }
+
+    @PostMapping("/update-status/{influencer-id}")
+    public ResponseEntity<?> updateInfluencerStatus(@PathVariable(name = "influencer-id") Integer influencerId, @RequestBody Map<String, Boolean> requestBody) {
+        boolean isActive = requestBody.getOrDefault("isactive", false);
+
+        try {
+            influencerService.updateStatus(influencerId, isActive);
+            return ResponseEntity.ok(Collections.singletonMap("message", "Status updated successfully"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/check-profile/{influencer-id}")
+    public ResponseEntity<?> checkProfileCompletion(@PathVariable(name = "influencer-id") Integer influencerId) {
+        boolean isProfileComplete = influencerService.isProfileComplete(influencerId);
+        return ResponseEntity.ok(Collections.singletonMap("profileCompleted", isProfileComplete));
+    }
+
+    @GetMapping("/check-project/{influencer-id}")
+    public ResponseEntity<?> checkProjectCompletion(@PathVariable(name = "influencer-id") Integer influencerId) {
+        boolean isProjectComplete = influencerService.isProjectComplete(influencerId);
+        return ResponseEntity.ok(Collections.singletonMap("projectCompleted", isProjectComplete));
+    }
+
+    @PostMapping("/get-project/{influencer-id}")
+    public ResponseEntity<?> getProjectInfluencer(@PathVariable(name = "influencer-id") Integer influencerId, @RequestBody String dateString) {
+        try {
+            // Parse dateString yang berbentuk JSON {"date":"2025-02-19T09:59:19.422Z"}
+            JSONObject jsonObject = new JSONObject(dateString);
+            String dateFromJson = jsonObject.getString("date");
+
+            // Konversi string tanggal ke LocalDate
+            LocalDate date = LocalDate.parse(dateFromJson, DateTimeFormatter.ISO_DATE_TIME);
+
+            List<ProjectInfluencerDto> projectInfluencerDto = influencerService.getProjectInfluencer(influencerId, date);
+
+            return ResponseEntity.ok(projectInfluencerDto);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("error", e.getMessage()));
+        }
+    }
+
 }
