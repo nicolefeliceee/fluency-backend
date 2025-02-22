@@ -1648,6 +1648,14 @@ public class InfluencerService {
         return influencerHomeResponseDto;
     }
 
+    public InfluencerDetailResponseDto detailInfluencerForProfile(Integer influencerId) {
+        Influencer influencer = influencerRepository.findById(influencerId).orElse(null);
+
+        InfluencerDetailResponseDto influencerFilterResponseDto = buildDetailResponse(influencer, false);
+
+        return influencerFilterResponseDto;
+    }
+
     public StoryDetailDto fetchStoryDetails(String storyId, String token) {
         try{
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + storyId + "/insights")

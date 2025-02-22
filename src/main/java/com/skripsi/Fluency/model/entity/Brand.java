@@ -23,7 +23,6 @@ public class Brand {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(length = 55)
     private String password;
 
     @Column(length = 5000000)

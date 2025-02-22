@@ -245,4 +245,10 @@ public class InfluencerController {
         }
     }
 
+//    created by: devin
+    @GetMapping("/detail/{influencer-id}")
+    public ResponseEntity<?> detailInfluencerForProfile(@PathVariable(name = "influencer-id") Integer influencerId) {
+        InfluencerDetailResponseDto detailInfluencer = influencerService.detailInfluencerForProfile(influencerId);
+        return ResponseEntity.ok(detailInfluencer);
+    }
 }

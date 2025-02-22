@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -47,13 +48,16 @@ public class UserService {
     @Autowired
     public InfluencerMediaTypeRepository influencerMediaTypeRepository;
 
+    @Autowired
+    public PasswordService passwordService;
+
     public LoginResponseDto login(LoginBrandRequestDto loginBrandRequestDto) {
         User user = userRepository.findByEmail(loginBrandRequestDto.getEmail());
         if (user == null){
             return null;
         }
         Brand brand = user.getBrand();
-        if (loginBrandRequestDto.getPassword().equals(brand.getPassword())){
+        if (passwordService.verifyPassword(loginBrandRequestDto.getPassword(), brand.getPassword())){
 
             LoginResponseDto loginResponseDto = LoginResponseDto.builder()
                     .id(brand.getUser().getId())
@@ -72,6 +76,9 @@ public class UserService {
 
     @Autowired
     public InfluencerRepository influencerRepository;
+
+    @Autowired
+    public InfluencerService influencerService;
 
     @Value(value = "${base.url}")
     private String baseUrl;
@@ -123,7 +130,7 @@ public class UserService {
         }
         catch (Exception e){
             System.out.println(e.getMessage());
-            return null;
+            throw new RuntimeException();
         }
     }
 
@@ -186,7 +193,7 @@ public class UserService {
             }
 
             Brand newBrand = Brand.builder()
-                    .password(requestDto.getPassword())
+                    .password(passwordService.hashPassword(requestDto.getPassword()))
                     .profilePictureByte(profilePictureByte)
                     .profilePictureType(profilePictureType)
                     .profilePictureName(profilePictureName)
@@ -391,6 +398,125 @@ public class UserService {
     }
 
 
+    @Transactional(rollbackOn = Exception.class)
+    public ResponseEntity<?> editProfileInfluencer(String userId, SignupInfluencerRequestDto requestDto) {
+
+        try {
+
+//            check email exist
+            User existing = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+            if(existing == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+//        create user dulu
+            Location location = locationRepository.findById(requestDto.getLocation()).orElse(null);
+
+            existing.setName(requestDto.getName());
+            existing.setEmail(requestDto.getEmail());
+            existing.setPhone(requestDto.getPhone());
+            existing.setLocation(location);
+
+            userRepository.save(existing);
+
+//        habis itu save influencer
+            Influencer currInfluencer = existing.getInfluencer();
+
+            Gender gender = genderRepository.findById(Integer.valueOf(requestDto.getGender())).orElse(null);
+
+            List<Category> categories = new ArrayList<>();
+            for(String id: requestDto.getCategory()) {
+                Category newCategory = categoryRepository.findById(Integer.valueOf(id)).orElse(null);
+                categories.add(newCategory);
+            }
+
+            currInfluencer.setGender(gender);
+            currInfluencer.setCategories(categories);
+            currInfluencer.setDob(LocalDate.parse(requestDto.getDob()));
+
+            influencerRepository.save(currInfluencer);
+
+            //            save mediatypes story
+//            if(requestDto.getStoryPrice() != null && !requestDto.getStoryPrice().isEmpty()) {
+                MediaType storyMediaType = mediaTypeRepository.findById(1).orElse(null);
+                InfluencerMediaType influencerStory = influencerMediaTypeRepository.findByInfluencerAndMediaType(currInfluencer, storyMediaType);
+                if(influencerStory == null) {
+                    if (requestDto.getStoryPrice() != null && !requestDto.getStoryPrice().isEmpty()) {
+                        InfluencerMediaType newMedia = InfluencerMediaType.builder()
+                                .mediaType(storyMediaType)
+                                .influencer(currInfluencer)
+                                .price(Integer.valueOf(requestDto.getStoryPrice().replace(".","")))
+                                .build();
+
+                        influencerMediaTypeRepository.save(newMedia);
+                    }
+                } else {
+                    if(requestDto.getStoryPrice() == null) {
+                        influencerStory.setPrice(0);
+                    } else {
+                        influencerStory.setPrice(Integer.valueOf(requestDto.getStoryPrice().replace(".","")));
+                    }
+                    influencerMediaTypeRepository.save(influencerStory);
+                }
+//            }
+
+            //            save mediatypes feeds
+//            if(requestDto.getFeedsPrice() != null && !requestDto.getFeedsPrice().isEmpty()) {
+            MediaType feedsMediaType = mediaTypeRepository.findById(2).orElse(null);
+            InfluencerMediaType influencerFeeds = influencerMediaTypeRepository.findByInfluencerAndMediaType(currInfluencer, feedsMediaType);
+            if(influencerFeeds == null) {
+                if (requestDto.getFeedsPrice() != null && !requestDto.getFeedsPrice().isEmpty()) {
+                    InfluencerMediaType newMedia = InfluencerMediaType.builder()
+                            .mediaType(feedsMediaType)
+                            .influencer(currInfluencer)
+                            .price(Integer.valueOf(requestDto.getFeedsPrice().replace(".","")))
+                            .build();
+
+                    influencerMediaTypeRepository.save(newMedia);
+                }
+            } else {
+                if(requestDto.getFeedsPrice() == null) {
+                    influencerFeeds.setPrice(0);
+                } else {
+                    influencerFeeds.setPrice(Integer.valueOf(requestDto.getFeedsPrice().replace(".","")));
+                }
+                influencerMediaTypeRepository.save(influencerFeeds);
+            }
+//            }
+
+//            save mediatypes reels
+//            if(requestDto.getReelsPrice() != null && !requestDto.getReelsPrice().isEmpty()) {
+            MediaType reelsMediaType = mediaTypeRepository.findById(3).orElse(null);
+            InfluencerMediaType influencerReels = influencerMediaTypeRepository.findByInfluencerAndMediaType(currInfluencer, reelsMediaType);
+            if(influencerReels == null) {
+                if (requestDto.getReelsPrice() != null && !requestDto.getReelsPrice().isEmpty()) {
+                    InfluencerMediaType newMedia = InfluencerMediaType.builder()
+                            .mediaType(reelsMediaType)
+                            .influencer(currInfluencer)
+                            .price(Integer.valueOf(requestDto.getReelsPrice().replace(".","")))
+                            .build();
+
+                    influencerMediaTypeRepository.save(newMedia);
+                }
+            } else {
+                if(requestDto.getReelsPrice() == null) {
+                    influencerReels.setPrice(0);
+                } else {
+                    influencerReels.setPrice(Integer.valueOf(requestDto.getReelsPrice().replace(".","")));
+                }
+                influencerMediaTypeRepository.save(influencerReels);
+            }
+//            }
+
+
+
+        } catch(Exception ex) {
+            throw new RuntimeException(ex);
+        }
+
+        return ResponseEntity.ok(requestDto);
+    }
 
     public ResponseEntity<?> findEmail(String email) {
         User check = userRepository.findByEmail(email);
@@ -482,30 +608,43 @@ public class UserService {
                         }
                 ).collect(Collectors.toList());
 
-                String feedsPrice = user.getInfluencer().getInfluencerMediaTypes().stream().filter(
-                        item -> item.getMediaType().getLabel().equalsIgnoreCase("feeds")
-                ).toString();
+                HashMap<String, String> gender = new HashMap<>();
+                gender.put("id", user.getInfluencer().getGender().getId().toString());
+                gender.put("label", user.getInfluencer().getGender().getLabel());
 
-                String reelsPrice = user.getInfluencer().getInfluencerMediaTypes().stream().filter(
-                        item -> item.getMediaType().getLabel().equalsIgnoreCase("reels")
-                ).toString();
+                HashMap<String, String> locationMap = new HashMap<>();
+                locationMap.put("id", user.getLocation().getId().toString());
+                locationMap.put("label", capitalizeWords(user.getLocation().getLabel()));
 
-                String storyPrice = user.getInfluencer().getInfluencerMediaTypes().stream().filter(
-                        item -> item.getMediaType().getLabel().equalsIgnoreCase("story")
-                ).toString();
+                String feedsPrice = "";
+                String reelsPrice = "";
+                String storyPrice = "";
+                for(InfluencerMediaType item: user.getInfluencer().getInfluencerMediaTypes()) {
+                    if(item.getMediaType().getLabel().equalsIgnoreCase("feeds")) {
+                        feedsPrice = formatPrice(item.getPrice().toString());
+                    } else if(item.getMediaType().getLabel().equalsIgnoreCase("reels")) {
+                        reelsPrice = formatPrice(item.getPrice().toString());
+                    } else if(item.getMediaType().getLabel().equalsIgnoreCase("story")) {
+                        storyPrice = formatPrice(item.getPrice().toString());
+                    }
+                }
 
                 InfluencerProfileDto influencerProfileDto = InfluencerProfileDto.builder()
+                        .influencerId(user.getInfluencer().getId().toString())
                         .name(user.getName())
                         .email(user.getEmail())
                         .phone(user.getPhone())
                         .gender(user.getInfluencer().getGender().getLabel())
+                        .genderMap(gender)
                         .instagramId(user.getInfluencer().getInstagramId())
                         .location(capitalizeWords(user.getLocation().getLabel()))
+                        .locationMap(locationMap)
                         .category(categories)
                         .token(user.getInfluencer().getToken())
                         .feedsPrice(feedsPrice)
                         .reelsPrice(reelsPrice)
                         .storyPrice(storyPrice)
+                        .dob(user.getInfluencer().getDob().toString())
                         .build();
 
                 return ResponseEntity.ok(influencerProfileDto);
@@ -530,5 +669,15 @@ public class UserService {
             }
         }
         return capitalized.toString().trim();
+    }
+
+    public static String formatPrice(String price) {
+//        System.out.println("ini udah masuk di formatprice");
+        if (price.isEmpty()) {
+            return "";
+        }
+        // Format angka dengan titik (locale Indonesia)
+        NumberFormat formatter = NumberFormat.getInstance(new Locale("id", "ID"));
+        return formatter.format(Long.parseLong(price));
     }
 }
