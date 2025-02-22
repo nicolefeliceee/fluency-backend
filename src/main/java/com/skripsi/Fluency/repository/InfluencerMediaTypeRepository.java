@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface InfluencerMediaTypeRepository extends JpaRepository<InfluencerMediaType, Integer> {
     List<InfluencerMediaType> findByInfluencer(Influencer influencer);
+
+    boolean existsByInfluencer_Id(Integer influencerId);
 }

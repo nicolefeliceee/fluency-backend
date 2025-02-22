@@ -98,6 +98,18 @@ public class InfluencerService {
     @Autowired
     public InfluencerMediaTypeRepository influencerMediaTypeRepository;
 
+    @Autowired
+    public WalletDetailRepository walletDetailRepository;
+
+    @Autowired
+    public WalletHeaderRepository walletHeaderRepository;
+
+    @Autowired
+    public ProjectHeaderRepository projectHeaderRepository;
+
+    @Autowired
+    public ProjectDetailRepository projectDetailRepository;
+
     private Predicate createAgePredicate(CriteriaBuilder criteriaBuilder, Root<Influencer> root, Integer lowerAge, Integer upperAge) {
         LocalDate today = LocalDate.now();
 
@@ -834,13 +846,18 @@ public class InfluencerService {
             System.out.println("influencers: " + influencer.getUser().getName());
 
             User userBrand = userRepository.findById(brandId).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI FILTER INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(brandId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
+
             InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
 
             // Tambahkan influencer ke response list
@@ -955,19 +972,22 @@ public class InfluencerService {
 //      Mapping response
         List<InfluencerFilterResponseDto> response = new ArrayList<>();
 //        return influencerRepository.findAll(spec);
+
         for (Influencer influencer: influencers){
             System.out.println("influencers: " + influencer.getUser().getName());
-
-
             User userBrand = userRepository.findById(brandId).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(brandId), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI SORT INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(brandId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
+
             InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
 
             // Tambahkan influencer ke response list
@@ -992,14 +1012,17 @@ public class InfluencerService {
             System.out.println("influencers: " + influencer.getUser().getName());
 
             User userBrand = userRepository.findById(Integer.valueOf(userId)).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(userId), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI SEARCH INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(userId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
 
             InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
 
@@ -1027,14 +1050,17 @@ public class InfluencerService {
             System.out.println("influencers: " + influencer.getUser().getName());
 
             User userBrand = userRepository.findById(Integer.valueOf(userId)).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(userId), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI SEARCH INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(userId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
 
             if(isSaved){
                 InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
@@ -1071,14 +1097,17 @@ public class InfluencerService {
             System.out.println("influencers: " + influencer.getUser().getName());
 
             User userBrand = userRepository.findById(Integer.valueOf(userId)).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(userId), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI GET TOP INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(userId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
 
             InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
 
@@ -1419,13 +1448,17 @@ public class InfluencerService {
             System.out.println("influencers: " + influencer.getUser().getName());
 
             User userBrand = userRepository.findById(brandId).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI FILTER INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(brandId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
 
             if(isSaved){
                 InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
@@ -1560,14 +1593,17 @@ public class InfluencerService {
 
 
             User userBrand = userRepository.findById(brandId).orElse(null);
-            Brand brand = userBrand.getBrand();
 
-            Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-//            Boolean isSaved = isInfluencerSavedByBrand(Integer.valueOf(brandId), influencer.getId());
-            System.out.println("INI LAGI LIAT IS SAVED DI SORT INFLUENCER");
-            System.out.println("boolean: " + isSaved);
-            System.out.println("brandId: " + Integer.valueOf(brandId));
-            System.out.println("influencer: " + influencer.getId());
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
 
             if(isSaved){
                 InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
@@ -1584,14 +1620,32 @@ public class InfluencerService {
         System.out.println("influencer: " + influencer.getUser().getName());
 
         User userBrand = userRepository.findById(userId).orElse(null);
-        Brand brand = userBrand.getBrand();
 
-        Boolean isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
-
+        Boolean isSaved;
+        // brand
+        if (userBrand != null && userBrand.getBrand() != null) {
+            Brand brand = userBrand.getBrand();
+            isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+        }
+        // influencer
+        else {
+            isSaved = false;
+        }
 
         InfluencerDetailResponseDto influencerFilterResponseDto = buildDetailResponse(influencer, isSaved);
 
         return influencerFilterResponseDto;
+    }
+
+    public InfluencerHomeDto detailHomeInfluencer(Integer userId) {
+//        Influencer influencer = influencerRepository.findById(userId).orElse(null);
+        User user = userRepository.findById(userId).orElse(null);
+        Influencer influencer = influencerRepository.findByUser(user);
+        System.out.println("detail home influencer: " + influencer.getUser().getName());
+
+        InfluencerHomeDto influencerHomeResponseDto = buildDetailHomeResponse(influencer);
+
+        return influencerHomeResponseDto;
     }
 
     public StoryDetailDto fetchStoryDetails(String storyId, String token) {
@@ -1629,9 +1683,6 @@ public class InfluencerService {
                     }
                 }
             }
-            System.out.println("view: " + viewCount);
-            System.out.println("share: " + shareCount);
-
 //            sekarang mau ambil media type dll
             UriComponentsBuilder builder2 = UriComponentsBuilder.fromUriString(baseUrl + "/" + storyId)
                     .queryParam("fields", "media_type,media_product_type,media_url,permalink,timestamp,thumbnail_url")
@@ -1692,6 +1743,7 @@ public class InfluencerService {
             return null; // Return null jika terjadi error
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di fetchstorydetail");
             return null;
 
         }
@@ -1817,6 +1869,7 @@ public class InfluencerService {
             return null; // Return null jika terjadi error
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di fetchmediadetails");
             return null;
 
         }
@@ -1902,6 +1955,7 @@ public class InfluencerService {
                     .build();
         }catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di follgrowth");
             return null;
 
         }
@@ -1957,6 +2011,7 @@ public class InfluencerService {
 
         }catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di reach");
             return null;
 
         }
@@ -1965,9 +2020,9 @@ public class InfluencerService {
     public HashMap<String,Object> onlineFollowers (String igid, String token){
         HashMap<String,Object> hashMap = new HashMap<>();
         try {
-            long start = getUnixTimestamp(3);
-            long end = getUnixTimestampEoD(3);
-            System.out.println("unix timestamp 3 hari lalu: " + start + " " + end);
+            long start = getUnixTimestamp(4);
+            long end = getUnixTimestampEoD(4);
+            System.out.println("unix timestamp 4 hari lalu: " + start + " " + end);
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + igid + "/insights")
                     .queryParam("metric", "online_followers")
                     .queryParam("period", "lifetime")
@@ -1998,7 +2053,8 @@ public class InfluencerService {
                             JsonNode valueObject = valueNode.get("value");
                             if (valueObject != null && valueObject.isObject()) {
                                 for (int i = 0; i < 24; i++) {
-                                    int followerCount = valueObject.get(String.valueOf(i)).asInt();
+                                    JsonNode followerNode = valueObject.get(String.valueOf(i));
+                                    int followerCount = (followerNode != null && followerNode.isInt()) ? followerNode.asInt() : 0; // Jika null, set 0
                                     int hourWIB = (i + 7) % 24; // Konversi ke WIB
                                     String hourLabel = hourWIB + ":00";
 
@@ -2014,8 +2070,6 @@ public class InfluencerService {
                                         minFollowers = followerCount;
                                         lowestTime = hourLabel;
                                     }
-//                                    labels.add(hourLabel);
-//                                    data.add(valueObject.get(String.valueOf(i)).asText());
                                 }
                             }
                         }
@@ -2034,6 +2088,7 @@ public class InfluencerService {
             return hashMap;
         }catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di onl foll");
             return null;
 
         }
@@ -2081,6 +2136,7 @@ public class InfluencerService {
                     .build();
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di cityaud");
             return null;
         }
     }
@@ -2117,6 +2173,7 @@ public class InfluencerService {
                     .build();
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di age audience");
             return null;
         }
     }
@@ -2153,6 +2210,7 @@ public class InfluencerService {
                     .build();
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("error di gender audience");
             return null;
         }
     }
@@ -2161,7 +2219,6 @@ public class InfluencerService {
         try{
             Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
             Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
-
 
             if (averageRating == null) {
                 averageRating = 0.0; // Default jika tidak ada review
@@ -2208,11 +2265,11 @@ public class InfluencerService {
             JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
 
 //            Ambil data saja
-            String dataFollowers = jsonNode.get("followers_count").asText();
-            String dataFollowing = jsonNode.get("follows_count").asText();
-            String dataTotalPost = jsonNode.get("media_count").asText();
-            String dataUsername = jsonNode.get("username").asText();
-            String dataBio = jsonNode.get("biography").asText();
+            String dataFollowers = jsonNode.path("followers_count").asText("");
+            String dataFollowing = jsonNode.path("follows_count").asText("");
+            String dataTotalPost = jsonNode.path("media_count").asText("");
+            String dataUsername = jsonNode.path("username").asText("");
+            String dataBio = jsonNode.path("biography").asText("");
 
 //            System.out.println("followers: " + dataFollowers);
 //            System.out.println("following: " + dataFollowing);
@@ -2241,7 +2298,7 @@ public class InfluencerService {
             } else {
                 System.out.println("⚠️ Tidak ada story yang tersedia.");
             }
-
+            System.out.println("ini get story list aman");
 
             List<MediaDetailDto> mediaList = new ArrayList<>();
             JsonNode mediaNode = jsonNode.get("media");
@@ -2260,6 +2317,7 @@ public class InfluencerService {
             } else {
                 System.out.println("⚠️ Tidak ada media yang tersedia.");
             }
+            System.out.println("ini get media list aman");
 
             List<MediaDetailDto> feeds = new ArrayList<>();
             List<MediaDetailDto> reels = new ArrayList<>();
@@ -2396,9 +2454,240 @@ public class InfluencerService {
         }
         catch (Exception e){
             System.out.println(e.getMessage());
+            System.out.println("error di build detail response");
             return null;
         }
 
+    }
+
+    public Integer getTotalRevenueByInfluencer(Integer userId) {
+        System.out.println("ini masuk di get total revenue untuk uid: " + userId);
+        // Dapatkan WalletHeader milik Influencer
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("userId influencer tidak ditemukan"));
+
+        Optional<WalletHeader> walletHeader = walletHeaderRepository.findByUserId(userId);
+
+        if (walletHeader == null){
+            System.out.println("kalo masuk brarti ga wallet headernya null");
+            return 0; // Jika tidak punya wallet, revenue = 0
+        }
+
+        Integer walletHeaderId = walletHeader.map(WalletHeader::getId).orElse(null);
+        System.out.println("wallet header id: " + walletHeaderId);
+
+//        if (user.getWalletHeader() == null) {
+//            System.out.println("kalo masuk brarti ga wallet headernya null");
+//            return 0; // Jika tidak punya wallet, revenue = 0
+//        }
+
+        System.out.println("total revenue: " + walletDetailRepository.getTotalRevenueByInfluencer(walletHeaderId));
+        return walletDetailRepository.getTotalRevenueByInfluencer(walletHeaderId);
+    }
+
+    public GraphDto getRevenueGraph(Integer userId) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(29);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
+
+        // Dapatkan WalletHeader milik Influencer
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("userId influencer tidak ditemukan"));
+
+        Optional<WalletHeader> walletHeader = walletHeaderRepository.findByUserId(userId);
+        Integer walletHeaderId = walletHeader.map(WalletHeader::getId).orElse(null);
+        System.out.println("wallet header id: " + walletHeaderId);
+
+        // Ambil semua transaksi dalam 30 hari terakhir dengan transactionType 4
+        List<WalletDetail> transactions = walletDetailRepository.findByWalletHeaderIdAndTransactionTypeIdAndDateTimeBetween(
+                walletHeaderId, 4, startDate.atStartOfDay(), today.atTime(23, 59, 59));
+
+        // Map untuk menyimpan total revenue per tanggal
+        Map<LocalDate, Integer> revenueMap = new TreeMap<>(); // TreeMap otomatis urut berdasarkan tanggal
+
+        // Akumulasi revenue berdasarkan tanggal
+        for (WalletDetail transaction : transactions) {
+            LocalDate date = LocalDate.from(transaction.getDateTime());
+            revenueMap.put(date, revenueMap.getOrDefault(date, 0) + transaction.getNominal());
+        }
+
+        // List untuk menyimpan label tanggal
+        List<LocalDate> labels = new ArrayList<>();
+        List<Integer> data = new ArrayList<>();
+
+        // Akumulasi total revenue dari tanggal paling awal ke paling akhir
+        int accumulatedRevenue = 0;
+        // Loop dari startDate sampai today
+        for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
+            // Jika ada transaksi di tanggal tersebut, update revenue
+            accumulatedRevenue = revenueMap.getOrDefault(date, 0);
+
+            // Simpan tanggal dan revenue ke dalam list
+            labels.add(date);
+            data.add(accumulatedRevenue);
+        }
+
+        return GraphDto.builder()
+                .labels(labels.stream().map(LocalDate::toString).collect(Collectors.toList())) // Konversi LocalDate ke String
+                .data(data.stream().map(String::valueOf).collect(Collectors.toList())) // Konversi Integer ke String
+                .build();
+    }
+
+    public InfluencerHomeDto buildDetailHomeResponse(Influencer influencer){
+        try{
+            Double averageRating = influencerRepository.findAverageRatingByInfluencerId(Long.valueOf(influencer.getId()));
+            Integer totalReviews = influencerRepository.findTotalReviewsByInfluencerId(Long.valueOf(influencer.getId()));
+
+            if (averageRating == null) {
+                averageRating = 0.0; // Default jika tidak ada review
+            }
+
+            if (totalReviews == null) {
+                totalReviews = 0; // Default jika tidak ada review
+            }
+
+            List<Category> categories = influencer.getCategories();
+            List<Map<String,Object>> categoryDto = new ArrayList<>();
+
+            for (Category category: categories){
+                Map<String,Object> newMap = new HashMap<>();
+                newMap.put("id", category.getId());
+                newMap.put("label", category.getLabel());
+                categoryDto.add(newMap);
+            }
+
+//        untuk get basic data dari ig
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/" + influencer.getInstagramId())
+                    .queryParam("fields", "followers_count,follows_count,media_count,username,biography,media")
+                    .queryParam("access_token", influencer.getToken());
+
+//            Ambil response
+            ResponseEntity<?> response = restTemplate.getForEntity(builder.toUriString(), String.class);
+
+//            Ubah response kedalam bentuk JSON
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(String.valueOf(response.getBody()));
+
+//            Ambil data saja
+            String dataFollowers = jsonNode.path("followers_count").asText("");
+            String dataFollowing = jsonNode.path("follows_count").asText("");
+            String dataTotalPost = jsonNode.path("media_count").asText("");
+            String dataUsername = jsonNode.path("username").asText("");
+            String dataBio = jsonNode.path("biography").asText("");
+
+//            System.out.println("followers: " + dataFollowers);
+//            System.out.println("following: " + dataFollowing);
+//            System.out.println("total post: " + dataTotalPost);
+//            System.out.println("username: " + dataUsername);
+//            System.out.println("dataBio: " + dataBio);
+
+//            ini untuk media
+            List<MediaDetailDto> mediaList = new ArrayList<>();
+            JsonNode mediaNode = jsonNode.get("media");
+            if (mediaNode != null && mediaNode.has("data") && mediaNode.get("data").isArray()) {
+                JsonNode mediaData = mediaNode.get("data");
+
+                for (JsonNode mediaItem : mediaData) {
+                    String mediaId = mediaItem.get("id").asText();
+                    System.out.println("media id: " + mediaId);
+
+                    MediaDetailDto mediaDetail = fetchMediaDetails(mediaId, influencer.getToken());
+                    if (mediaDetail != null) {
+                        mediaList.add(mediaDetail);
+                    }
+                }
+            } else {
+                System.out.println("⚠️ Tidak ada media yang tersedia.");
+            }
+
+            // Hitung total like, shared, saved, dan comment
+            int totalLike = mediaList.stream().mapToInt(MediaDetailDto::getLikecount).sum();
+            int totalShared = mediaList.stream().mapToInt(MediaDetailDto::getSharecount).sum();
+            int totalSaved = mediaList.stream().mapToInt(MediaDetailDto::getSavecount).sum();
+            int totalComment = mediaList.stream().mapToInt(MediaDetailDto::getCommentcount).sum();
+
+            // Hitung rata-rata
+            int avgLike = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalLike / mediaList.size());
+            int avgShared = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalShared / mediaList.size());
+            int avgSaved = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalSaved / mediaList.size());
+            int avgComment = mediaList.isEmpty() ? 0 : (int) Math.round((double) totalComment / mediaList.size());
+
+            Double totalInteraction = (double) (avgLike + avgComment + avgSaved + avgShared);
+            Integer dataFollowersInt = Integer.valueOf(dataFollowers);
+            Double engagement = (dataFollowersInt == 0) ? 0.0 : (totalInteraction / dataFollowersInt) * 100;
+
+//            mau hitung data2 project
+            List<ProjectHeader> projects = projectHeaderRepository.findByInfluencerId(influencer.getId());
+
+            // Hitung jumlah proyek berdasarkan status
+            long waitingProj = projects.stream().filter(p -> p.getStatus().getId() == 3).count();
+            long ongoingProj = projects.stream().filter(p -> p.getStatus().getId() == 4 || p.getStatus().getId() == 5).count();
+            long completedProj = projects.stream().filter(p -> p.getStatus().getId() == 6).count();
+//            long totalProjects = projects.size();
+
+            String waiting = String.valueOf(waitingProj);
+            String ongoing = String.valueOf(ongoingProj);
+            String completed = String.valueOf(completedProj);
+
+
+            // Persentase proyek berdasarkan status
+            GraphDto projectPct = GraphDto.builder()
+                    .labels(List.of("Waiting", "Ongoing", "Completed"))
+                    .data(List.of(waiting, ongoing, completed))
+                    .build();
+
+            // Hitung approval vs rejection
+            long approvedProj = projects.stream().filter(p -> p.getStatus().getId() == 4 || p.getStatus().getId() == 5 || p.getStatus().getId() == 6).count();
+            long rejectedProj = projects.stream().filter(p -> p.getStatus().getId() == 7).count();
+//            long totalReviewed = approvedProj + rejectedProj;
+
+            String approved = String.valueOf(approvedProj);
+            String rejected = String.valueOf(rejectedProj);
+
+            GraphDto approvalPct = GraphDto.builder()
+                    .labels(List.of("Approved", "Rejected"))
+                    .data(List.of(approved, rejected))
+                    .build();
+
+            // Bangun InfluencerFilterResponseDto untuk setiap influencer
+            InfluencerHomeDto detailHomeInfluencer = InfluencerHomeDto.builder()
+                    .id(influencer.getUser().getId())
+                    .influencerid(influencer.getId())
+                    .name(influencer.getUser().getName())
+                    .email(influencer.getUser().getEmail())
+                    .location(capitalize(influencer.getUser().getLocation().getLabel()))
+                    .phone(influencer.getUser().getPhone())
+                    .gender(influencer.getGender().getLabel())
+                    .category(categoryDto) // Pastikan categoryDto sudah didefinisikan
+                    .usertype(influencer.getUser().getUserType())
+                    .instagramid(influencer.getInstagramId())
+                    .isactive(influencer.getIsActive())
+                    .token(influencer.getToken())
+                    .followers(formatFollowers(Integer.parseInt(dataFollowers)))
+                    .rating(formatRatingDetail(averageRating)) // Pastikan averageRating sudah didefinisikan
+                    .totalreview(formatFollowers(totalReviews)) // Pastikan totalReviews sudah didefinisikan
+                    .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
+                    .postmedia(formatFollowers(Integer.parseInt(dataTotalPost)))
+                    .engagement(formatRating(engagement))
+                    .following(formatFollowers(Integer.parseInt(dataFollowing)))
+                    .username(dataUsername)
+                    .bio(dataBio)
+                    .totalrevenue(formatPrice(String.valueOf(getTotalRevenueByInfluencer(influencer.getUser().getId()))))
+                    .revenueacc(getRevenueGraph(influencer.getUser().getId()))
+                    .waitingproj(waiting)
+                    .ongoingproj(ongoing)
+                    .completedproj(completed)
+                    .projectpct(projectPct)
+                    .approvalpct(approvalPct)
+                    .build();
+
+            return detailHomeInfluencer;
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            System.out.println("error di build detail home response");
+            return null;
+        }
     }
 
 //    INI UNTUK SIMILAR INFLUENCER
@@ -2531,4 +2820,80 @@ public class InfluencerService {
                 .orElse(0);
     }
 
+//    buat cek & update aktif influencer
+    public void updateStatus(Integer influencerId, boolean isActive) {
+        Influencer influencer = influencerRepository.findById(influencerId)
+                .orElseThrow(() -> new RuntimeException("Influencer not found"));
+
+        influencer.setIsActive(isActive);
+        influencerRepository.save(influencer);
+    }
+
+    public boolean isProfileComplete(Integer influencerId) {
+        Influencer influencer = influencerRepository.findById(influencerId)
+                .orElseThrow(() -> new RuntimeException("Influencer not found"));
+
+        Boolean exists = influencerMediaTypeRepository.existsByInfluencer_Id(influencerId);
+
+        return exists;
+    }
+
+    public boolean isProjectComplete(Integer influencerId) {
+        Influencer influencer = influencerRepository.findById(influencerId)
+                .orElseThrow(() -> new RuntimeException("Influencer not found"));
+
+        boolean exists = projectHeaderRepository.existsByInfluencerIdAndStatusIdIn(
+                influencerId, Arrays.asList(3, 4, 5));
+//        Boolean exists = influencerMediaTypeRepository.existsByInfluencer_Id(influencerId);
+
+        return !exists;
+    }
+
+    public List<ProjectInfluencerDto> getProjectInfluencer(Integer influencerId, LocalDate date){
+        System.out.println("date: " + date);
+        System.out.println("inf id: " + influencerId);
+
+        // Hitung rentang tanggal dari date hingga date + 7
+        LocalDate endDate = date.plusDays(7);
+
+        // Ambil ProjectHeader berdasarkan influencerId
+//        List<ProjectHeader> projectHeaders = projectHeaderRepository.findByInfluencerId(influencerId);
+
+        // Ambil ProjectHeader berdasarkan influencerId dan statusId antara 4, 5, atau 6
+        List<ProjectHeader> projectHeaders = projectHeaderRepository.findByInfluencerIdAndStatusIdIn(influencerId, Arrays.asList(4, 5, 6));
+
+        // Cari ProjectDetail yang memiliki deadlineDate antara date dan endDate
+        List<ProjectDetail> projectDetails = projectDetailRepository.findByProjectHeaderInAndDeadlineDateBetween(projectHeaders, date, endDate);
+
+        if (!projectDetails.isEmpty()) {
+            // List untuk menyimpan hasil mapping
+            List<ProjectInfluencerDto> projectInfluencerDtos = new ArrayList<>();
+
+            // Iterasi melalui projectDetails dan map ke ProjectInfluencerDto
+            for (ProjectDetail projectDetail : projectDetails) {
+                // Mengambil ProjectHeader terkait
+                ProjectHeader projectHeader = projectDetail.getProjectHeader();
+
+                // Membuat ProjectInfluencerDto dan menambahkannya ke list
+                ProjectInfluencerDto dto = ProjectInfluencerDto.builder()
+                        .projectheaderid(projectHeader.getId())
+                        .projectdetailid(projectDetail.getId())
+                        .fulldate(projectDetail.getDeadlineDate())
+                        .day(projectDetail.getDeadlineDate().format(DateTimeFormatter.ofPattern("EEE")))
+                        .date(projectDetail.getDeadlineDate().format(DateTimeFormatter.ofPattern("d")))  // Hanya tanggalnya (misalnya 17)
+                        .brandname(projectHeader.getBrand().getUser().getName())  // Ambil nama brand
+                        .mediatype(projectDetail.getMediaType().getLabel())  // Ambil nama mediaType
+                        .projecttitle(projectHeader.getTitle())  // Ambil judul proyek
+                        .build();
+
+                projectInfluencerDtos.add(dto);  // Tambahkan dto ke dalam list
+            }
+
+            return projectInfluencerDtos;
+        } else {
+            // Jika tidak ada proyek yang sesuai dengan rentang tanggal
+            return null;  // Atau bisa lempar exception jika proyek tidak ditemukan
+        }
+
+    }
 }

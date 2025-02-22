@@ -12,4 +12,7 @@ public interface ProjectHeaderRepository extends JpaRepository<ProjectHeader, In
     List<ProjectHeader> findByTitleContaining(String title);
     List<ProjectHeader> findAllByInfluencerAndTitleContainingIgnoreCaseOrderByIdDesc(Influencer influencer, String title);
     List<ProjectHeader> findAllByBrandAndTitleContainingIgnoreCaseOrderByIdDesc(Brand brand, String title);
+    List<ProjectHeader> findByInfluencerId(Integer influencerId);
+    List<ProjectHeader> findByInfluencerIdAndStatusIdIn(Integer influencerId, List<Integer> statusIds);
+    boolean existsByInfluencerIdAndStatusIdIn(Integer influencerId, List<Integer> statusIds);
 }
