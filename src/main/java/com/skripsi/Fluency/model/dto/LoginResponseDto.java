@@ -10,4 +10,5 @@ public class LoginResponseDto {
     private Integer id;
     private String name;
     private String instagramId;
+    private String userType;
 }

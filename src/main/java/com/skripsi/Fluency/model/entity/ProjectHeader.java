@@ -48,4 +48,6 @@ public class ProjectHeader {
     @OneToOne
     @JoinColumn(name = "review_id")
     private Review review;
+
+    private LocalDate finishedDate;
 }

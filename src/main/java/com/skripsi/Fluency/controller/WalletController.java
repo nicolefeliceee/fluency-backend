@@ -2,6 +2,7 @@ package com.skripsi.Fluency.controller;
 
 import com.skripsi.Fluency.model.dto.InfluencerFilterRequestDto;
 import com.skripsi.Fluency.model.dto.InfluencerFilterResponseDto;
+import com.skripsi.Fluency.model.dto.WalletDetailDto;
 import com.skripsi.Fluency.model.dto.WalletResponseDto;
 import com.skripsi.Fluency.service.InfluencerService;
 import com.skripsi.Fluency.service.WalletService;
@@ -28,13 +29,13 @@ public class WalletController {
                 return ResponseEntity.ok(userId);
             } else if ("Wallet not found".equals(result)) {
 //                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
-                return ResponseEntity.notFound().build() ;
+                return ResponseEntity.notFound().build();
             } else if ("Insufficient balance".equals(result)) {
-                return  ResponseEntity.unprocessableEntity().build();
+                return ResponseEntity.unprocessableEntity().build();
             } else {
-                return ResponseEntity.badRequest().build() ;
+                return ResponseEntity.badRequest().build();
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             System.out.println(e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -48,29 +49,31 @@ public class WalletController {
             WalletResponseDto response = walletService.walletInfo(userId);
 
             return ResponseEntity.ok(response);
-        } catch(Exception e) {
+        } catch (Exception e) {
             System.out.println(e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
     @PostMapping("checkout/{user-id}")
-    public ResponseEntity<?> checkout(@RequestBody Integer amount, @PathVariable(name = "user-id") Integer userId) {
+    public ResponseEntity<?> checkout(
+            @RequestBody WalletDetailDto request,
+            @PathVariable(name = "user-id") Integer userId
+    ) {
         try {
-            System.out.println("ini masuk wallet controller transfer");
-            String result = walletService.checkout(userId, amount);
+            String result = walletService.checkout(userId, request);
 
             if ("Transfer successful".equals(result)) {
                 return ResponseEntity.ok(userId);
             } else if ("Wallet not found".equals(result)) {
 //                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
-                return ResponseEntity.notFound().build() ;
+                return ResponseEntity.notFound().build();
             } else if ("Insufficient balance".equals(result)) {
-                return  ResponseEntity.unprocessableEntity().build();
+                return ResponseEntity.unprocessableEntity().build();
             } else {
-                return ResponseEntity.badRequest().build() ;
+                return ResponseEntity.badRequest().build();
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             System.out.println(e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -86,14 +89,31 @@ public class WalletController {
                 return ResponseEntity.ok(userId);
             } else if ("Wallet not found".equals(result)) {
 //                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
-                return ResponseEntity.notFound().build() ;
+                return ResponseEntity.notFound().build();
             } else {
-                return ResponseEntity.badRequest().build() ;
+                return ResponseEntity.badRequest().build();
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             System.out.println(e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+
         }
+    }
+
+    @PostMapping("disbursement/{brand-id}")
+    public ResponseEntity<?> disburse(
+            @RequestBody WalletDetailDto request,
+            @PathVariable(name = "brand-id") Integer brandId
+    ) {
+        try {
+            ResponseEntity<?> result = walletService.disbursement(brandId, request);
+
+            return result;
+        } catch (Exception e) {
+
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+
     }
 
 }

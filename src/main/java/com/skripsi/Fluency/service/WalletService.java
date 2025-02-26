@@ -2,13 +2,10 @@ package com.skripsi.Fluency.service;
 
 import com.skripsi.Fluency.model.dto.WalletDetailDto;
 import com.skripsi.Fluency.model.dto.WalletResponseDto;
-import com.skripsi.Fluency.model.entity.TransactionType;
-import com.skripsi.Fluency.model.entity.WalletDetail;
-import com.skripsi.Fluency.model.entity.WalletHeader;
-import com.skripsi.Fluency.repository.TransactionTypeRepository;
-import com.skripsi.Fluency.repository.WalletDetailRepository;
-import com.skripsi.Fluency.repository.WalletHeaderRepository;
+import com.skripsi.Fluency.model.entity.*;
+import com.skripsi.Fluency.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.text.NumberFormat;
@@ -27,6 +24,14 @@ public class WalletService {
 
     @Autowired
     public TransactionTypeRepository transactionTypeRepository;
+    @Autowired
+    public UserRepository userRepository;
+
+    @Autowired
+    public BrandRepository brandRepository;
+
+    @Autowired
+    public InfluencerRepository influencerRepository;
 
     public String transferWallet(Integer userId, Integer amount) {
         WalletHeader walletHeader = walletHeaderRepository.findByUserId(userId)
@@ -155,9 +160,11 @@ public class WalletService {
         return response;
     }
 
-    public String checkout(Integer userId, Integer amount) {
+    public String checkout(Integer userId, WalletDetailDto request) {
         WalletHeader walletHeader = walletHeaderRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Wallet not found for user ID: " + userId));
+
+        Integer amount = request.getNominal();
 
         // Cek saldo mencukupi
         if (walletHeader.getBalance() < amount) {
@@ -172,6 +179,8 @@ public class WalletService {
         TransactionType transactionType = transactionTypeRepository.findById(2)
                 .orElseThrow(() -> new RuntimeException("Transaction type 'Transfer' not found"));
 
+        User partner = userRepository.findById(request.getPartnerId()).orElseThrow();
+
 
         // Buat WalletDetail baru
         WalletDetail walletDetail = new WalletDetail();
@@ -179,6 +188,7 @@ public class WalletService {
         walletDetail.setNominal(amount); // Nominal sebagai Integer
         walletDetail.setTransactionType(transactionType); // Contoh TransactionType
         walletDetail.setDateTime(LocalDateTime.now());
+        walletDetail.setUser(partner);
         walletDetailRepository.save(walletDetail);
 
         return "Transfer successful";
@@ -189,11 +199,11 @@ public class WalletService {
                 .orElseThrow(() -> new RuntimeException("Wallet not found for user ID: " + userId));
 
         // Kurangi saldo
-        System.out.println("saldo saat ini: " + walletHeader.getBalance());
-        System.out.println("amount di topup: " + amount);
+//        System.out.println("saldo saat ini: " + walletHeader.getBalance());
+//        System.out.println("amount di topup: " + amount);
         walletHeader.setBalance(walletHeader.getBalance() + amount);
         walletHeaderRepository.save(walletHeader);
-        System.out.println("saldo after: " + walletHeader.getBalance());
+//        System.out.println("saldo after: " + walletHeader.getBalance());
 
         // Ambil TransactionType untuk topup (ID = 3)
         TransactionType transactionType = transactionTypeRepository.findById(3)
@@ -208,5 +218,45 @@ public class WalletService {
         walletDetailRepository.save(walletDetail);
 
         return "Top Up successful";
+    }
+
+    public ResponseEntity<?> disbursement(Integer brandId, WalletDetailDto request) {
+        Brand brand = brandRepository.findById(brandId).orElse(null);
+        Influencer influencer = influencerRepository.findById(request.getPartnerId()).orElse(null);
+
+        if(brand == null || influencer == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        User userBrand = brand.getUser();
+        User userInfluencer = influencer.getUser();
+
+        WalletHeader walletHeader = walletHeaderRepository.findByUserId(userInfluencer.getId()).orElse(null);
+
+        if(walletHeader == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Integer amount = request.getNominal();
+
+        // tambah saldo
+        walletHeader.setBalance(walletHeader.getBalance() + amount);
+        walletHeaderRepository.save(walletHeader);
+
+        // Ambil TransactionType untuk payment (ID = 4)
+        TransactionType transactionType = transactionTypeRepository.findById(4)
+                .orElseThrow(() -> new RuntimeException("Transaction type 'Transfer' not found"));
+
+        // Buat WalletDetail baru
+        WalletDetail walletDetail = new WalletDetail();
+        walletDetail.setWalletHeader(walletHeader);
+        walletDetail.setNominal(amount); // Nominal sebagai Integer
+        walletDetail.setTransactionType(transactionType); // Contoh TransactionType
+        walletDetail.setDateTime(LocalDateTime.now());
+
+        walletDetail.setUser(userBrand);
+        walletDetailRepository.save(walletDetail);
+
+        return ResponseEntity.ok(request);
     }
 }

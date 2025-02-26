@@ -5,6 +5,7 @@ import com.skripsi.Fluency.model.dto.ProjectHeaderDto;
 import com.skripsi.Fluency.model.dto.SentimentAnalysisDto;
 import com.skripsi.Fluency.model.dto.VerifyLinkDto;
 import com.skripsi.Fluency.service.ProjectService;
+import org.apache.coyote.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -98,5 +99,32 @@ public class ProjectController {
         return response;
     }
 
+    @GetMapping("report/create/{id}")
+    public ResponseEntity<?> createReportProject(@PathVariable(name = "id") String projectHeaderId) {
+        ResponseEntity<?> response = projectService.createTicket(projectHeaderId);
+        return response;
+    }
+
+    @GetMapping("report")
+    public ResponseEntity<?> getTickets(
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "query", required = false) String query
+    ) {
+        return projectService.getTicket(status, query);
+    }
+
+    @GetMapping("report/{id}")
+    public ResponseEntity<?> getTicketById(@PathVariable(name = "id") String id,
+                                            @RequestParam(name = "status", required = false) String status
+    ) {
+        return projectService.getTicketById(id);
+    }
+
+    @PutMapping("report/edit/{id}")
+    public ResponseEntity<?> editTicketStatus(@PathVariable(name = "id") String id,
+                                              @RequestParam(name = "status") String status) {
+        System.out.println(status);
+        return projectService.editTicket(id, status);
+    }
 
 }

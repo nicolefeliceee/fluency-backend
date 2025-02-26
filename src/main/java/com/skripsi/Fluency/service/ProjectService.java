@@ -2,10 +2,7 @@ package com.skripsi.Fluency.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.skripsi.Fluency.model.dto.ProjectDetailDto;
-import com.skripsi.Fluency.model.dto.ProjectHeaderDto;
-import com.skripsi.Fluency.model.dto.SentimentAnalysisDto;
-import com.skripsi.Fluency.model.dto.VerifyLinkDto;
+import com.skripsi.Fluency.model.dto.*;
 import com.skripsi.Fluency.model.entity.*;
 import com.skripsi.Fluency.repository.*;
 import jakarta.transaction.Transactional;
@@ -13,6 +10,7 @@ import org.apache.coyote.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -50,7 +48,13 @@ public class ProjectService {
     public MediaTypeRepository mediaTypeRepository;
 
     @Autowired
+    public TicketRepository ticketRepository;
+
+    @Autowired
     private RestTemplate restTemplate;
+
+    @Autowired
+    private WalletService walletService;
 
     @Value(value = "${base.url}")
     private String baseUrl;
@@ -223,6 +227,12 @@ public class ProjectService {
 
         Status newStatus = statusRepository.findById(Integer.valueOf(requestDto.getStatusId())).orElse(null);
 
+//        diisi kalo status udh review (5)
+        LocalDate finishedDate = null;
+        if(Integer.valueOf(requestDto.getStatusId()) == 5) {
+            finishedDate = LocalDate.now();
+        }
+
         existing.setTitle(requestDto.getTitle());
         existing.setDescription(requestDto.getDescription());
         existing.setCaption(requestDto.getCaption());
@@ -230,6 +240,7 @@ public class ProjectService {
         existing.setMention(requestDto.getMention());
         existing.setInfluencer(influencer);
         existing.setStatus(newStatus);
+        existing.setFinishedDate(finishedDate);
         existing.setReferenceNumber(requestDto.getReferenceNumber());
 
         projectHeaderRepository.save(existing);
@@ -624,10 +635,30 @@ public class ProjectService {
             //            Ambil response
             ResponseEntity<?> commmentResponse = restTemplate.getForEntity(getCommentsUrl.toUriString(), String.class);
 
-            JsonNode commentJson = mapper.readTree(String.valueOf(commmentResponse.getBody()));
-            JsonNode comments = commentJson.get("data");
+            if(commmentResponse.getStatusCode().is2xxSuccessful()) {
+                JsonNode commentJson = mapper.readTree(String.valueOf(commmentResponse.getBody()));
+                JsonNode comments = commentJson.get("data");
 
-            responseDto = calculateSentimentAnalysis(comments);
+                responseDto = calculateSentimentAnalysis(comments);
+
+//                save ke db hasilnya
+                ProjectDetail detailEntity =  projectDetailRepository.findById(Integer.valueOf(projectDetailId)).orElse(null);
+               detailEntity.setSentimentPositive(Double.valueOf(responseDto.getSentimentPositive()));
+               detailEntity.setSentimentNegative(Double.valueOf(responseDto.getSentimentNegative()));
+               detailEntity.setSentimentNeutral(Double.valueOf(responseDto.getSentimentNeutral()));
+
+               projectDetailRepository.save(detailEntity);
+
+            } else {
+//                ambil dari db
+                ProjectDetail detailEntity =  projectDetailRepository.findById(Integer.valueOf(projectDetailId)).orElse(null);
+                responseDto = SentimentAnalysisDto.builder()
+                        .sentimentPositive(detailEntity.getSentimentPositive().toString())
+                        .sentimentNegative(detailEntity.getSentimentNegative().toString())
+                        .sentimentNeutral(detailEntity.getSentimentNeutral().toString())
+                        .build();
+            }
+
         } catch(Exception ex) {
             ex.printStackTrace();
             return ResponseEntity.internalServerError().build();
@@ -769,5 +800,169 @@ public class ProjectService {
         return weeks + "w";
     }
 
+    public ResponseEntity<?> createTicket(String projectHeaderid) {
+        ProjectHeader projectHeader = projectHeaderRepository.findById(Integer.valueOf(projectHeaderid)).orElse(null);
+        if(projectHeader == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Ticket check = ticketRepository.findByProjectHeader(projectHeader);
+
+        if(check != null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Ticket entity = Ticket.builder()
+                .reportedDate(LocalDate.now())
+                .projectHeader(projectHeader)
+                .status("ongoing")
+                .build();
+        ticketRepository.save(entity);
+
+        return ResponseEntity.ok(projectHeaderid);
+    }
+
+    public ResponseEntity<?> getTicket(String status, String query) {
+
+        if(query != null) {
+            query = query.trim();
+        }
+
+        List<Ticket> entities = new ArrayList<>();
+
+        if((status == null || status.isEmpty()) && (query == null || query.isEmpty())) {
+            entities = this.ticketRepository.findAll();
+        } else if(query == null || query.isEmpty()) {
+            entities = this.ticketRepository.findAllByStatusIgnoreCaseOrderByIdAsc(status);
+        } else if(status == null || status.isEmpty()) {
+            List<ProjectHeader> projectHeaderList = projectHeaderRepository.findAllByTitleContainingIgnoreCaseOrderByIdDesc(query);
+            for (ProjectHeader item: projectHeaderList) {
+                Ticket ticket = ticketRepository.findByProjectHeader(item);
+                if(ticket!=null) {
+                    entities.add(ticketRepository.findByProjectHeader(item));
+                }
+            }
+        }
+
+        if(entities.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<TicketDto> responseDto = entities.stream().map(
+                item -> {
+                    ProjectHeaderDto projectHeaderDto = ProjectHeaderDto.builder()
+                            .id(item.getProjectHeader().getId().toString())
+                            .title(item.getProjectHeader().getTitle())
+                            .description(item.getProjectHeader().getDescription())
+                            .mention(item.getProjectHeader().getMention())
+                            .hashtag(item.getProjectHeader().getHashtag())
+                            .caption(item.getProjectHeader().getCaption())
+                            .brandId(item.getProjectHeader().getBrand().getId().toString())
+                            .influencerId(item.getProjectHeader().getInfluencer() == null ? "" : item.getProjectHeader().getInfluencer().getId().toString())
+                            .statusId(item.getProjectHeader().getStatus().getId().toString())
+                            .referenceNumber(item.getProjectHeader().getReferenceNumber())
+                            .projectDetails(
+                                    getProjectDetailsByHeaderId(item.getProjectHeader().getId())
+                            )
+                            .build();
+
+
+                    return TicketDto.builder()
+                            .id(item.getId().toString())
+                            .resolvedDate(item.getResolvedDate() == null ? "" : item.getResolvedDate().toString())
+                            .reportedDate(item.getReportedDate()== null ? "" : item.getReportedDate().toString())
+                            .projectHeader(projectHeaderDto)
+                            .status(item.getStatus())
+                            .build();
+                }
+        ).toList();
+
+        return ResponseEntity.ok(responseDto);
+    }
+
+    public ResponseEntity<?> getTicketById(String id) {
+        Ticket ticket = ticketRepository.findById(Integer.valueOf(id)).orElse(null);
+
+        if(ticket == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        ProjectHeaderDto projectHeaderDto = ProjectHeaderDto.builder()
+                .id(ticket.getProjectHeader().getId().toString())
+                .title(ticket.getProjectHeader().getTitle())
+                .description(ticket.getProjectHeader().getDescription())
+                .mention(ticket.getProjectHeader().getMention())
+                .hashtag(ticket.getProjectHeader().getHashtag())
+                .caption(ticket.getProjectHeader().getCaption())
+                .brandId(ticket.getProjectHeader().getBrand().getId().toString())
+                .influencerId(ticket.getProjectHeader().getInfluencer() == null ? "" : ticket.getProjectHeader().getInfluencer().getId().toString())
+                .statusId(ticket.getProjectHeader().getStatus().getId().toString())
+                .referenceNumber(ticket.getProjectHeader().getReferenceNumber())
+                .projectDetails(
+                        getProjectDetailsByHeaderId(ticket.getProjectHeader().getId())
+                )
+                .build();
+
+
+        TicketDto responseDto = TicketDto.builder()
+                .id(ticket.getId().toString())
+                .resolvedDate(ticket.getResolvedDate() == null ? "" : ticket.getResolvedDate().toString())
+                .reportedDate(ticket.getReportedDate()== null ? "" : ticket.getReportedDate().toString())
+                .projectHeader(projectHeaderDto)
+                .status(ticket.getStatus())
+                .build();
+
+
+        return ResponseEntity.ok(responseDto);
+
+    }
+
+    public ResponseEntity<?> editTicket(String id, String status) {
+        Ticket ticket = ticketRepository.findById(Integer.valueOf(id)).orElse(null);
+
+        if(ticket == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        ticket.setStatus(status.toLowerCase());
+
+        ticketRepository.save(ticket);
+
+        return ResponseEntity.ok().build();
+    }
+
+
+//    scheduled task buat ngecek project yg now - finished date >= 7 && status = review
+    @Scheduled(cron = "0 0 0 * * ?")
+    public void autoUpdateProject() {
+        List<ProjectHeader> projectHeaders = projectHeaderRepository.findFinishSevenDaysAgoProjects();
+
+        Status doneStatus = statusRepository.findById(6).orElse(null);
+        projectHeaders.forEach(
+                item -> {
+                    //        update project status
+                    item.setStatus(doneStatus);
+                    projectHeaderRepository.save(item);
+
+
+                    //        disbursement ke influencer
+                    Integer amount = 0;
+                    for (ProjectDetail detail:
+                         item.getProjectDetails()) {
+                        amount += Integer.parseInt(detail.getNominal().toString());
+                    }
+
+                    Integer influencerId = item.getInfluencer().getId();
+                    Integer brandId = item.getBrand().getId();
+
+                    walletService.disbursement(
+                            brandId,
+                            WalletDetailDto.builder()
+                                    .partnerId(influencerId)
+                                    .nominal(amount)
+                                    .build());
+                }
+        );
+
+    }
 
 }

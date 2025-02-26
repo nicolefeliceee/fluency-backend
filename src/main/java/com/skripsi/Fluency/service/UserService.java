@@ -62,6 +62,7 @@ public class UserService {
             LoginResponseDto loginResponseDto = LoginResponseDto.builder()
                     .id(brand.getUser().getId())
                     .name(brand.getUser().getName())
+                    .userType(user.getUserType())
                     .build();
 
             return loginResponseDto;
