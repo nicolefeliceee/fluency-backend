@@ -8,6 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("user")
 public class UserController {
@@ -111,5 +114,27 @@ public class UserController {
             return ResponseEntity.internalServerError().build();
         }
 
+    }
+
+    @GetMapping("all")
+    public ResponseEntity<?> getAllUser() {
+        try {
+            List<UserDto> userDto = userService.getAllUser();
+            return ResponseEntity.ok(userDto);
+        } catch(Exception ex) {
+            return ResponseEntity.internalServerError().build() ;
+        }
+    }
+    
+    @PutMapping("/block/{id}")
+    public ResponseEntity<?> toggleBlockStatus(@PathVariable(name = "id") Integer id, @RequestBody Map<String, String> body) {
+        String status = body.get("status");
+        String result = userService.toggleBlockStatus(id, status);
+
+        if ("User not found".equals(result)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(Map.of("status", result));
     }
 }

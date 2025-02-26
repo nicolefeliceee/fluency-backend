@@ -35,4 +35,5 @@ public class InfluencerFilterResponseDto {
     private String minprice;
     private String profilepicture;
     private Boolean issaved;
+    private Boolean isblocked;
 }

@@ -858,10 +858,18 @@ public class InfluencerService {
                 isSaved = false;
             }
 
-            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+            Boolean isBlocked = influencer.getUser().getIsBlocked();
+            Boolean isActive = influencer.getIsActive();
+            if (isActive && !isBlocked){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
 
-            // Tambahkan influencer ke response list
-            response.add(influencerFilterResponseDto);
+//            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+//
+//            // Tambahkan influencer ke response list
+//            response.add(influencerFilterResponseDto);
         }
 
         return response;
@@ -988,10 +996,18 @@ public class InfluencerService {
                 isSaved = false;
             }
 
-            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+            Boolean isBlocked = influencer.getUser().getIsBlocked();
+            Boolean isActive = influencer.getIsActive();
+            if (isActive && !isBlocked){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
 
-            // Tambahkan influencer ke response list
-            response.add(influencerFilterResponseDto);
+//            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+//
+//            // Tambahkan influencer ke response list
+//            response.add(influencerFilterResponseDto);
         }
 
         return response;
@@ -1024,10 +1040,18 @@ public class InfluencerService {
                 isSaved = false;
             }
 
-            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+            Boolean isBlocked = influencer.getUser().getIsBlocked();
+            Boolean isActive = influencer.getIsActive();
+            if (isActive && !isBlocked){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
 
-            // Tambahkan influencer ke response list
-            response.add(influencerFilterResponseDto);
+//            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+//
+//            // Tambahkan influencer ke response list
+//            response.add(influencerFilterResponseDto);
         }
 
         System.out.println("ini udah selesai build response");
@@ -1063,10 +1087,15 @@ public class InfluencerService {
             }
 
             if(isSaved){
-                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+                Boolean isBlocked = influencer.getUser().getIsBlocked();
+                Boolean isActive = influencer.getIsActive();
+                if (isActive && !isBlocked){
+                    InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
 
-                // Tambahkan influencer ke response list
-                response.add(influencerFilterResponseDto);
+                    // Tambahkan influencer ke response list
+                    response.add(influencerFilterResponseDto);
+                }
+
             }
         }
 
@@ -1109,10 +1138,15 @@ public class InfluencerService {
                 isSaved = false;
             }
 
-            InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+            Boolean isBlocked = influencer.getUser().getIsBlocked();
+            Boolean isActive = influencer.getIsActive();
+            if (isActive && !isBlocked){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
 
-            // Tambahkan influencer ke response list
-            response.add(influencerFilterResponseDto);
+                // Tambahkan influencer ke response list
+                response.add(influencerFilterResponseDto);
+            }
+
         }
 
         System.out.println("ini udah selesai build response");
@@ -1120,17 +1154,99 @@ public class InfluencerService {
         return response;
     }
 
+//    public List<InfluencerFilterResponseDto> getRecommendationDummy(String userId) {
+//        System.out.println("masuk ke get recommendation");
+//
+//        // Ambil data influencer teratas, di-limiting menjadi 8 influencer
+//        List<InfluencerFilterResponseDto> influencerData = filterInfluencer(generateRecommendationRequest(userId), Integer.valueOf(userId));
+//        System.out.println("ini generate request nya: " + generateRecommendationRequest(userId));
+//        System.out.println("ini udah selesai hit filter influencer, balikannya: " + influencerData);
+//
+//        // Ambil 8 influencer pertama (jika jumlahnya lebih dari 8, ambil maksimal 8)
+//        List<InfluencerFilterResponseDto> top8Influencers = influencerData.stream()
+//                .limit(8) // Ambil 8 influencer pertama
+//                .collect(Collectors.toList());
+//
+//        System.out.println("SELESAI GET RECOMMENDATION");
+//        System.out.println("OUTPUT: " + top8Influencers);
+//
+//        return top8Influencers;
+//    }
+
     public List<InfluencerFilterResponseDto> getRecommendation(String userId) {
         System.out.println("masuk ke get recommendation");
 
-        // Ambil data influencer teratas, di-limiting menjadi 8 influencer
-        List<InfluencerFilterResponseDto> influencerData = filterInfluencer(generateRecommendationRequest(userId), Integer.valueOf(userId));
-        System.out.println("ini generate request nya: " + generateRecommendationRequest(userId));
-        System.out.println("ini udah selesai hit filter influencer, balikannya: " + influencerData);
+        List<Influencer> influencers = influencerRepository.findAll();
+        Map<InfluencerFilterResponseDto, Double> influencerScores = new HashMap<>();
 
-        // Ambil 8 influencer pertama (jika jumlahnya lebih dari 8, ambil maksimal 8)
-        List<InfluencerFilterResponseDto> top8Influencers = influencerData.stream()
-                .limit(8) // Ambil 8 influencer pertama
+        // create dto untuk setiap influencer
+        List<InfluencerFilterResponseDto> allInfluencerDto = new ArrayList<>();
+        for (Influencer influencer: influencers){
+            System.out.println("influencers: " + influencer.getUser().getName());
+
+            User userBrand = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+            Boolean isSaved;
+            // brand
+            if (userBrand != null && userBrand.getBrand() != null) {
+                Brand brand = userBrand.getBrand();
+                isSaved = isInfluencerSavedByBrand(brand.getId(), influencer.getId());
+            }
+            // influencer
+            else {
+                isSaved = false;
+            }
+
+            Boolean isBlocked = influencer.getUser().getIsBlocked();
+            Boolean isActive = influencer.getIsActive();
+            if (isActive && !isBlocked){
+                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+
+                // Tambahkan influencer ke response list
+                allInfluencerDto.add(influencerFilterResponseDto);
+            }
+
+        }
+
+        // Inisialisasi skor untuk setiap influencer
+        for (InfluencerFilterResponseDto influencer : allInfluencerDto) {
+            influencerScores.put(influencer, 0.0);
+        }
+        System.out.println("Step 1: " + influencerScores);
+
+        // Step 2: Tambah skor berdasarkan kategori brand
+        List<InfluencerFilterResponseDto> influencerDataCategory = filterInfluencer(generateRecommendationCategoryRequest(userId), Integer.valueOf(userId));
+        for (InfluencerFilterResponseDto influencerDto : influencerDataCategory) {
+            influencerScores.put(influencerDto, influencerScores.getOrDefault(influencerDto, 0.0) + 0.4);
+        }
+        System.out.println("Step 2: " + influencerScores);
+
+        // Step 3: Tambah skor berdasarkan age range
+        List<InfluencerFilterResponseDto> influencerDataAge = filterInfluencer(generateRecommendationAgeRequest(userId), Integer.valueOf(userId));
+        for (InfluencerFilterResponseDto influencerDto : influencerDataAge) {
+            influencerScores.put(influencerDto, influencerScores.getOrDefault(influencerDto, 0.0) + 0.25);
+        }
+        System.out.println("Step 3: " + influencerScores);
+
+        // Step 4: Tambah skor berdasarkan gender audience
+        List<InfluencerFilterResponseDto> influencerDataGender = filterInfluencer(generateRecommendationGenderRequest(userId), Integer.valueOf(userId));
+        for (InfluencerFilterResponseDto influencerDto : influencerDataGender) {
+            influencerScores.put(influencerDto, influencerScores.getOrDefault(influencerDto, 0.0) + 0.2);
+        }
+        System.out.println("Step 4: " + influencerScores);
+
+        // Step 5: Tambah skor berdasarkan lokasi
+        List<InfluencerFilterResponseDto> influencerDataLocation = filterInfluencer(generateRecommendationLocationRequest(userId), Integer.valueOf(userId));
+        for (InfluencerFilterResponseDto influencerDto : influencerDataLocation) {
+            influencerScores.put(influencerDto, influencerScores.getOrDefault(influencerDto, 0.0) + 0.15);
+        }
+        System.out.println("Step 5: " + influencerScores);
+
+        // Step 6: Sorting influencer berdasarkan skor tertinggi
+        List<InfluencerFilterResponseDto> top8Influencers =  influencerScores.entrySet().stream()
+                .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue()))
+                .map(Map.Entry::getKey)
+                .limit(8)
                 .collect(Collectors.toList());
 
         System.out.println("SELESAI GET RECOMMENDATION");
@@ -1139,8 +1255,178 @@ public class InfluencerService {
         return top8Influencers;
     }
 
-    public InfluencerFilterRequestDto generateRecommendationRequest(String userId) {
+//    public InfluencerFilterRequestDto generateRecommendationRequest(String userId) {
+//        System.out.println("ini lagi di generate recom req untuk user " + userId);
+//        // Ambil User berdasarkan userId
+//        User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+//
+//        if (user == null || user.getBrand() == null) {
+//            // Jika user tidak ditemukan atau brand tidak terhubung
+//            return null;
+//        }
+//
+//        // Ambil brand yang terkait dengan user
+//        Brand brand = user.getBrand();
+//
+//        // Inisialisasi DTO yang akan dikembalikan
+//        InfluencerFilterRequestDto filterRequestDto = new InfluencerFilterRequestDto();
+//
+//        // Inisialisasi dengan list kosong jika null
+//        filterRequestDto.setFollowers(filterRequestDto.getFollowers() != null ? filterRequestDto.getFollowers() : new ArrayList<>());
+//        filterRequestDto.setMedia(filterRequestDto.getMedia() != null ? filterRequestDto.getMedia() : new ArrayList<>());
+//        filterRequestDto.setGender(filterRequestDto.getGender() != null ? filterRequestDto.getGender() : new ArrayList<>());
+//        filterRequestDto.setAge(filterRequestDto.getAge() != null ? filterRequestDto.getAge() : new ArrayList<>());
+//        filterRequestDto.setPrice(filterRequestDto.getPrice() != null ? filterRequestDto.getPrice() : new ArrayList<>());
+//        filterRequestDto.setRating(filterRequestDto.getRating() != null ? filterRequestDto.getRating() : new ArrayList<>());
+//        filterRequestDto.setLocation(filterRequestDto.getLocation() != null ? filterRequestDto.getLocation() : new ArrayList<>());
+//        filterRequestDto.setGenderAudience(filterRequestDto.getGenderAudience() != null ? filterRequestDto.getGenderAudience() : new ArrayList<>());
+//        filterRequestDto.setAgeAudience(filterRequestDto.getAgeAudience() != null ? filterRequestDto.getAgeAudience() : new ArrayList<>());
+//        filterRequestDto.setCategoryChosen(filterRequestDto.getCategoryChosen() != null ? filterRequestDto.getCategoryChosen() : new ArrayList<>());
+//
+//        // Mengisi location (id location dari brand)
+//        List<Integer> locationIds = brand.getLocations().stream()
+//                .map(Location::getId) // Ambil ID dari masing-masing location
+//                .collect(Collectors.toList());
+//        filterRequestDto.setLocation(locationIds);
+//
+//        // Mengisi genderAudience (id gender dari brand)
+//        List<Integer> genderAudienceIds = brand.getGenders().stream()
+//                .map(Gender::getId) // Ambil ID dari masing-masing gender
+//                .collect(Collectors.toList());
+//        filterRequestDto.setGenderAudience(genderAudienceIds);
+//
+//        // Mengisi ageAudience (label dari age yang ditargetkan oleh brand)
+//        List<String> ageAudienceLabels = brand.getAges().stream()
+//                .map(Age::getLabel) // Ambil label dari masing-masing age
+//                .collect(Collectors.toList());
+//        filterRequestDto.setAgeAudience(ageAudienceLabels);
+//
+//        System.out.println("filterRequestDto" + filterRequestDto);
+//
+//        // Kembalikan filterRequestDto yang sudah terisi
+//        return filterRequestDto;
+//    }
+
+    public InfluencerFilterRequestDto generateRecommendationCategoryRequest(String userId) {
         System.out.println("ini lagi di generate recom req untuk user " + userId);
+        // Ambil User berdasarkan userId
+        User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+        if (user == null || user.getBrand() == null) {
+            // Jika user tidak ditemukan atau brand tidak terhubung
+            return null;
+        }
+
+        // Ambil brand yang terkait dengan user
+        Brand brand = user.getBrand();
+
+        // Inisialisasi DTO yang akan dikembalikan
+        InfluencerFilterRequestDto filterRequestDto = new InfluencerFilterRequestDto();
+
+        // Inisialisasi dengan list kosong jika null
+        filterRequestDto.setFollowers(filterRequestDto.getFollowers() != null ? filterRequestDto.getFollowers() : new ArrayList<>());
+        filterRequestDto.setMedia(filterRequestDto.getMedia() != null ? filterRequestDto.getMedia() : new ArrayList<>());
+        filterRequestDto.setGender(filterRequestDto.getGender() != null ? filterRequestDto.getGender() : new ArrayList<>());
+        filterRequestDto.setAge(filterRequestDto.getAge() != null ? filterRequestDto.getAge() : new ArrayList<>());
+        filterRequestDto.setPrice(filterRequestDto.getPrice() != null ? filterRequestDto.getPrice() : new ArrayList<>());
+        filterRequestDto.setRating(filterRequestDto.getRating() != null ? filterRequestDto.getRating() : new ArrayList<>());
+        filterRequestDto.setLocation(filterRequestDto.getLocation() != null ? filterRequestDto.getLocation() : new ArrayList<>());
+        filterRequestDto.setGenderAudience(filterRequestDto.getGenderAudience() != null ? filterRequestDto.getGenderAudience() : new ArrayList<>());
+        filterRequestDto.setAgeAudience(filterRequestDto.getAgeAudience() != null ? filterRequestDto.getAgeAudience() : new ArrayList<>());
+        filterRequestDto.setCategoryChosen(filterRequestDto.getCategoryChosen() != null ? filterRequestDto.getCategoryChosen() : new ArrayList<>());
+
+        // Mengisi category (id category dari brand)
+        List<Integer> categoryId = Collections.singletonList(brand.getCategory().getId());
+        filterRequestDto.setCategoryChosen(categoryId);
+
+        System.out.println("filterRequestDto" + filterRequestDto);
+
+        // Kembalikan filterRequestDto yang sudah terisi
+        return filterRequestDto;
+    }
+
+    public InfluencerFilterRequestDto generateRecommendationAgeRequest(String userId) {
+        System.out.println("ini lagi di generate recom req untuk user " + userId);
+        // Ambil User berdasarkan userId
+        User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+        if (user == null || user.getBrand() == null) {
+            // Jika user tidak ditemukan atau brand tidak terhubung
+            return null;
+        }
+
+        // Ambil brand yang terkait dengan user
+        Brand brand = user.getBrand();
+
+        // Inisialisasi DTO yang akan dikembalikan
+        InfluencerFilterRequestDto filterRequestDto = new InfluencerFilterRequestDto();
+
+        // Inisialisasi dengan list kosong jika null
+        filterRequestDto.setFollowers(filterRequestDto.getFollowers() != null ? filterRequestDto.getFollowers() : new ArrayList<>());
+        filterRequestDto.setMedia(filterRequestDto.getMedia() != null ? filterRequestDto.getMedia() : new ArrayList<>());
+        filterRequestDto.setGender(filterRequestDto.getGender() != null ? filterRequestDto.getGender() : new ArrayList<>());
+        filterRequestDto.setAge(filterRequestDto.getAge() != null ? filterRequestDto.getAge() : new ArrayList<>());
+        filterRequestDto.setPrice(filterRequestDto.getPrice() != null ? filterRequestDto.getPrice() : new ArrayList<>());
+        filterRequestDto.setRating(filterRequestDto.getRating() != null ? filterRequestDto.getRating() : new ArrayList<>());
+        filterRequestDto.setLocation(filterRequestDto.getLocation() != null ? filterRequestDto.getLocation() : new ArrayList<>());
+        filterRequestDto.setGenderAudience(filterRequestDto.getGenderAudience() != null ? filterRequestDto.getGenderAudience() : new ArrayList<>());
+        filterRequestDto.setAgeAudience(filterRequestDto.getAgeAudience() != null ? filterRequestDto.getAgeAudience() : new ArrayList<>());
+        filterRequestDto.setCategoryChosen(filterRequestDto.getCategoryChosen() != null ? filterRequestDto.getCategoryChosen() : new ArrayList<>());
+
+        // Mengisi ageAudience (label dari age yang ditargetkan oleh brand)
+        List<String> ageAudienceLabels = brand.getAges().stream()
+                .map(Age::getLabel) // Ambil label dari masing-masing age
+                .collect(Collectors.toList());
+        filterRequestDto.setAgeAudience(ageAudienceLabels);
+
+        System.out.println("filterRequestDto" + filterRequestDto);
+
+        // Kembalikan filterRequestDto yang sudah terisi
+        return filterRequestDto;
+    }
+
+    public InfluencerFilterRequestDto generateRecommendationGenderRequest(String userId) {
+        System.out.println("ini lagi di generate recom req untuk user " + userId);
+        // Ambil User berdasarkan userId
+        User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
+
+        if (user == null || user.getBrand() == null) {
+            // Jika user tidak ditemukan atau brand tidak terhubung
+            return null;
+        }
+
+        // Ambil brand yang terkait dengan user
+        Brand brand = user.getBrand();
+
+        // Inisialisasi DTO yang akan dikembalikan
+        InfluencerFilterRequestDto filterRequestDto = new InfluencerFilterRequestDto();
+
+        // Inisialisasi dengan list kosong jika null
+        filterRequestDto.setFollowers(filterRequestDto.getFollowers() != null ? filterRequestDto.getFollowers() : new ArrayList<>());
+        filterRequestDto.setMedia(filterRequestDto.getMedia() != null ? filterRequestDto.getMedia() : new ArrayList<>());
+        filterRequestDto.setGender(filterRequestDto.getGender() != null ? filterRequestDto.getGender() : new ArrayList<>());
+        filterRequestDto.setAge(filterRequestDto.getAge() != null ? filterRequestDto.getAge() : new ArrayList<>());
+        filterRequestDto.setPrice(filterRequestDto.getPrice() != null ? filterRequestDto.getPrice() : new ArrayList<>());
+        filterRequestDto.setRating(filterRequestDto.getRating() != null ? filterRequestDto.getRating() : new ArrayList<>());
+        filterRequestDto.setLocation(filterRequestDto.getLocation() != null ? filterRequestDto.getLocation() : new ArrayList<>());
+        filterRequestDto.setGenderAudience(filterRequestDto.getGenderAudience() != null ? filterRequestDto.getGenderAudience() : new ArrayList<>());
+        filterRequestDto.setAgeAudience(filterRequestDto.getAgeAudience() != null ? filterRequestDto.getAgeAudience() : new ArrayList<>());
+        filterRequestDto.setCategoryChosen(filterRequestDto.getCategoryChosen() != null ? filterRequestDto.getCategoryChosen() : new ArrayList<>());
+
+        // Mengisi genderAudience (id gender dari brand)
+        List<Integer> genderAudienceIds = brand.getGenders().stream()
+                .map(Gender::getId) // Ambil ID dari masing-masing gender
+                .collect(Collectors.toList());
+        filterRequestDto.setGenderAudience(genderAudienceIds);
+
+        System.out.println("filterRequestDto" + filterRequestDto);
+
+        // Kembalikan filterRequestDto yang sudah terisi
+        return filterRequestDto;
+    }
+
+    public InfluencerFilterRequestDto generateRecommendationLocationRequest(String userId) {
+        System.out.println("ini lagi di generate recom location req untuk user " + userId);
         // Ambil User berdasarkan userId
         User user = userRepository.findById(Integer.valueOf(userId)).orElse(null);
 
@@ -1173,38 +1459,11 @@ public class InfluencerService {
                 .collect(Collectors.toList());
         filterRequestDto.setLocation(locationIds);
 
-        // Mengisi genderAudience (id gender dari brand)
-        List<Integer> genderAudienceIds = brand.getGenders().stream()
-                .map(Gender::getId) // Ambil ID dari masing-masing gender
-                .collect(Collectors.toList());
-        filterRequestDto.setGenderAudience(genderAudienceIds);
-
-        // Mengisi ageAudience (label dari age yang ditargetkan oleh brand)
-        List<String> ageAudienceLabels = brand.getAges().stream()
-                .map(Age::getLabel) // Ambil label dari masing-masing age
-                .collect(Collectors.toList());
-        filterRequestDto.setAgeAudience(ageAudienceLabels);
-
         System.out.println("filterRequestDto" + filterRequestDto);
 
         // Kembalikan filterRequestDto yang sudah terisi
         return filterRequestDto;
     }
-
-//    public List<InfluencerFilterResponseDto> filterInfluencersByCategoryId(Integer categoryId, List<InfluencerFilterResponseDto> influencers){
-//        // Filter influencer berdasarkan kategori
-//        return influencers.stream()
-//                .filter(influencer -> influencer.getCategory() != null // Validasi null untuk category
-//                        && influencer.getCategory().stream()
-//                        .anyMatch(category -> {
-//                            if (category instanceof Map<?, ?> categoryMap) { // Casting ke Map
-//                                Object id = categoryMap.get("id");
-//                                return id != null && id.equals(categoryId); // Bandingkan ID
-//                            }
-//                            return false;
-//                        }))
-//                .toList();
-//    }
 
     public InfluencerFilterResponseDto buildResponse(Influencer influencer, Boolean isSaved){
 
@@ -1290,6 +1549,7 @@ public class InfluencerService {
                 .totalreview(formatFollowers(totalReviews)) // Pastikan totalReviews sudah didefinisikan
                 .profilepicture(getProfilePicture(influencer.getToken(), influencer.getInstagramId()))
                 .issaved(isSaved)
+                .isblocked(influencer.getUser().getIsBlocked())
                 .build();
 
         return influencerFilterResponseDto;
@@ -1461,10 +1721,13 @@ public class InfluencerService {
             }
 
             if(isSaved){
-                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
-
-                // Tambahkan influencer ke response list
-                response.add(influencerFilterResponseDto);
+                Boolean isBlocked = influencer.getUser().getIsBlocked();
+                Boolean isActive = influencer.getIsActive();
+                if (isActive && !isBlocked){
+                    InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+                    // Tambahkan influencer ke response list
+                    response.add(influencerFilterResponseDto);
+                }
             }
 
         }
@@ -1606,10 +1869,13 @@ public class InfluencerService {
             }
 
             if(isSaved){
-                InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
-
-                // Tambahkan influencer ke response list
-                response.add(influencerFilterResponseDto);
+                Boolean isBlocked = influencer.getUser().getIsBlocked();
+                Boolean isActive = influencer.getIsActive();
+                if (isActive && !isBlocked){
+                    InfluencerFilterResponseDto influencerFilterResponseDto = buildResponse(influencer, isSaved);
+                    // Tambahkan influencer ke response list
+                    response.add(influencerFilterResponseDto);
+                }
             }
         }
         return response;
@@ -1710,7 +1976,7 @@ public class InfluencerService {
             String timestamp = jsonNode2.get("timestamp").asText();
 
             String thumbnailUrl = mediaUrl;
-            if (mediaType == "VIDEO"){
+            if (mediaType.equalsIgnoreCase("video")){
                 thumbnailUrl = jsonNode2.get("thumbnail_url").asText();
             }
 
@@ -2408,6 +2674,40 @@ public class InfluencerService {
             String lowestTime = (String) hashMap.get("lowest");
             String highestTime = (String) hashMap.get("highest");
 
+
+            // untuk analytics
+            List<ProjectDetail> projectDetails = projectDetailRepository.findByInfluencerId(influencer.getId());
+
+            double sumPositive = projectDetails.stream()
+                    .filter(pd -> pd.getSentimentPositive() != null)
+                    .mapToDouble(ProjectDetail::getSentimentPositive)
+                    .sum();
+
+            double sumNegative = projectDetails.stream()
+                    .filter(pd -> pd.getSentimentNegative() != null)
+                    .mapToDouble(ProjectDetail::getSentimentNegative)
+                    .sum();
+
+            double sumNeutral = projectDetails.stream()
+                    .filter(pd -> pd.getSentimentNeutral() != null)
+                    .mapToDouble(ProjectDetail::getSentimentNeutral)
+                    .sum();
+
+            long totalSentimentCount = projectDetails.stream()
+                    .filter(pd -> pd.getSentimentPositive() != null || pd.getSentimentNegative() != null || pd.getSentimentNeutral() != null)
+                    .count();
+
+            String positive = String.valueOf((int) sumPositive);
+            String negative = String.valueOf((int) sumNegative);
+            String neutral = String.valueOf((int) sumNeutral);
+
+            // Persentase proyek berdasarkan status
+            GraphDto analytics = GraphDto.builder()
+                    .labels(List.of("Positive", "Neutral", "Negative"))
+                    .data(List.of(positive, neutral, negative))
+                    .build();
+
+
             // Bangun InfluencerFilterResponseDto untuk setiap influencer
             InfluencerDetailResponseDto influencerFilterResponseDto = InfluencerDetailResponseDto.builder()
                     .id(influencer.getUser().getId())
@@ -2456,6 +2756,8 @@ public class InfluencerService {
                     .highestonlinetime(highestTime)
                     .lowestonlinetime(lowestTime)
                     .similarinfluencer(findSimilarInfluencers(influencer.getId()))
+                    .analytics(analytics)
+                    .totalanalyticspost((int) totalSentimentCount)
                     .build();
 
             return influencerFilterResponseDto;
