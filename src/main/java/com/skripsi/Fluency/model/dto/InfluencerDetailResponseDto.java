@@ -41,9 +41,7 @@ public class InfluencerDetailResponseDto {
     private List<TotalRatingDto> totalrating;
     private List<SimilarInfluencerDto> similarinfluencer;
 
-    private List<?> positiveanalytics;
-    private List<?> negativeanalytics;
-    private List<?> neutralanalytics;
+    private GraphDto analytics;
     private Integer totalanalyticspost;
 
     private List<ReviewDto> feedback;

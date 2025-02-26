@@ -158,6 +158,7 @@ public class UserService {
                     .phone(requestDto.getPhone())
                     .location(location)
                     .userType("brand")
+                    .isBlocked(false)
                     .build();
 
             User savedUser = userRepository.save(newUser);
@@ -322,6 +323,7 @@ public class UserService {
                     .phone(requestDto.getPhone())
                     .location(location)
                     .userType("influencer")
+                    .isBlocked(false)
                     .build();
 
             User savedUser = userRepository.save(newUser);
@@ -679,5 +681,60 @@ public class UserService {
         // Format angka dengan titik (locale Indonesia)
         NumberFormat formatter = NumberFormat.getInstance(new Locale("id", "ID"));
         return formatter.format(Long.parseLong(price));
+    }
+
+//    get all user untuk admin
+    public List<UserDto> getAllUser(){
+        List<User> users = userRepository.findAll()
+                .stream()
+                .sorted(Comparator.comparing(User::getName))
+                .collect(Collectors.toList());
+        List<UserDto> userDtos = new ArrayList<>();
+
+        int number = 1;
+        for (User user : users) {
+            Integer influencerId = user.getInfluencer() != null ? user.getInfluencer().getId() : null;
+            Integer brandId = user.getBrand() != null ? user.getBrand().getId() : null;
+            String type = brandId != null ? "Brand" : (influencerId != null ? "Influencer" : "Unknown");
+            String status;
+
+            if (Boolean.TRUE.equals(user.getIsBlocked())) {
+                status = "Blocked";
+            } else if (influencerId != null) {
+                status = Boolean.TRUE.equals(user.getInfluencer().getIsActive()) ? "Active" : "Inactive";
+            } else {
+                status = "Active";
+            }
+
+            UserDto userDto = UserDto.builder()
+                    .id(user.getId())
+                    .influencerid(influencerId)
+                    .brandid(brandId)
+                    .number(number++)
+                    .name(user.getName())
+                    .email(user.getEmail())
+                    .type(type)
+                    .phone(user.getPhone())
+                    .status(status)
+                    .build();
+
+            userDtos.add(userDto);
+        }
+
+        return userDtos;
+    }
+
+    public String toggleBlockStatus(Integer id, String status) {
+        Optional<User> userOptional = userRepository.findById(id);
+        if (userOptional.isEmpty()) {
+            return "User not found";
+        }
+
+        User user = userOptional.get();
+        boolean isBlocked = "Blocked".equals(status);
+        user.setIsBlocked(isBlocked);
+
+        userRepository.save(user);
+        return isBlocked ? "Blocked" : "Unblocked";
     }
 }

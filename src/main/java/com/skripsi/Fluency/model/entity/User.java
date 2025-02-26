@@ -24,6 +24,9 @@ public class User {
     private String email;
     private String phone;
 
+    @Column
+    private Boolean isBlocked;
+
     @ManyToOne
     @JoinColumn(name = "location_id")
     private Location location;

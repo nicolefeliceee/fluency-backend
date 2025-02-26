@@ -183,4 +183,30 @@ public class WalletService {
 
         return "Transfer successful";
     }
+
+    public String topupWallet(Integer userId, Integer amount) {
+        WalletHeader walletHeader = walletHeaderRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for user ID: " + userId));
+
+        // Kurangi saldo
+        System.out.println("saldo saat ini: " + walletHeader.getBalance());
+        System.out.println("amount di topup: " + amount);
+        walletHeader.setBalance(walletHeader.getBalance() + amount);
+        walletHeaderRepository.save(walletHeader);
+        System.out.println("saldo after: " + walletHeader.getBalance());
+
+        // Ambil TransactionType untuk topup (ID = 3)
+        TransactionType transactionType = transactionTypeRepository.findById(3)
+                .orElseThrow(() -> new RuntimeException("Transaction type 'Transfer' not found"));
+
+        // Buat WalletDetail baru
+        WalletDetail walletDetail = new WalletDetail();
+        walletDetail.setWalletHeader(walletHeader);
+        walletDetail.setNominal(amount); // Nominal sebagai Integer
+        walletDetail.setTransactionType(transactionType); // Contoh TransactionType
+        walletDetail.setDateTime(LocalDateTime.now());
+        walletDetailRepository.save(walletDetail);
+
+        return "Top Up successful";
+    }
 }

@@ -76,4 +76,24 @@ public class WalletController {
         }
     }
 
+    @PostMapping("topup/{user-id}")
+    public ResponseEntity<?> topupWallet(@RequestBody Integer amount, @PathVariable(name = "user-id") Integer userId) {
+        try {
+            System.out.println("ini masuk wallet controller topup");
+            String result = walletService.topupWallet(userId, amount);
+
+            if ("Top Up successful".equals(result)) {
+                return ResponseEntity.ok(userId);
+            } else if ("Wallet not found".equals(result)) {
+//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+                return ResponseEntity.notFound().build() ;
+            } else {
+                return ResponseEntity.badRequest().build() ;
+            }
+        } catch(Exception e) {
+            System.out.println(e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 }
