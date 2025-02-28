@@ -1,5 +1,6 @@
 package com.skripsi.Fluency.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -17,6 +18,7 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @JsonIgnoreProperties("messages") // ✅ Prevents infinite recursion
     @ManyToOne
     @JoinColumn(name = "sender_id")
     private User user;
