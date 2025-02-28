@@ -1,5 +1,6 @@
 package com.skripsi.Fluency.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -56,6 +57,7 @@ public class User {
     @OneToMany(mappedBy = "user2")
     private List<Chat> chats2;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<Message> messages;
 }
